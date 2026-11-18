@@ -1,0 +1,40 @@
+[project]
+name = "radar"
+version = "0.1.0"
+description = "Radar pessoal: coleta notícias tech, vagas de estágio e editais, tria com IA e entrega no Telegram."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "beautifulsoup4>=4.15.0",
+    "feedparser>=6.0.14",
+    "httpx>=0.28.1",
+    "pydantic>=2.14.3",
+    "python-dotenv>=1.2.4",
+    "pyyaml>=6.0.3",
+]
+
+[project.scripts]
+radar = "radar.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.13.9,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "ruff>=0.17.5",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+# Não formatar blocos de código dentro de Markdown (CLAUDE.md, docs/).
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

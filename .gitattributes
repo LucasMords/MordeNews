@@ -1,0 +1,7 @@
+# Quebras de linha LF em todo o repositório (o CI roda em Linux).
+* text=auto eol=lf
+
+# Scripts do Windows mantêm CRLF.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf

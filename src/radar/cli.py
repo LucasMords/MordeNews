@@ -1,0 +1,146 @@
+"""Ponto de entrada da linha de comando: `radar <comando>`."""
+
+from __future__ import annotations
+
+import argparse
+import logging
+import sys
+from collections.abc import Callable, Sequence
+from datetime import UTC, datetime
+
+from radar import banco, config
+from radar.coletores.base import executar
+from radar.coletores.http import ClienteHttp
+from radar.coletores.registro import filtrar_fontes, montar_coletores
+from radar.modelos import Item
+
+log = logging.getLogger("radar")
+
+URL_TESTE = "https://radar.invalid/teste-banco?utm_source=radar"
+
+
+class FalhaVerificacao(Exception):
+    """Uma checagem do teste-banco não deu o resultado esperado."""
+
+
+def _configurar_logs() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    # O httpx loga cada requisição em INFO; deixamos só avisos para não poluir.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
+def _verificar(condicao: bool, mensagem: str) -> None:
+    if not condicao:
+        raise FalhaVerificacao(mensagem)
+    log.info("ok: %s", mensagem)
+
+
+def comando_teste_banco(args: argparse.Namespace) -> int:
+    """Grava, relê e (por padrão) apaga um item de teste no Supabase."""
+    iniciado_em = datetime.now(UTC)
+    item = Item(
+        modulo="noticias",
+        fonte="teste-banco",
+        titulo="Item de teste do radar",
+        url=URL_TESTE,
+        publicado_em=iniciado_em,
+        texto="Gerado por `radar teste-banco` para validar a conexão com o Supabase.",
+    )
+
+    if banco.existe(item.id_unico):
+        log.info("item de teste de uma execução anterior encontrado; removendo antes de testar")
+        banco.apagar_item(item.id_unico)
+
+    _verificar(banco.salvar_itens([item]) == 1, "primeira gravação inseriu 1 item novo")
+    _verificar(banco.salvar_itens([item]) == 0, "segunda gravação não duplicou o item")
+    _verificar(banco.existe(item.id_unico), "existe() encontra o item pelo id_unico")
+
+    gravado = banco.obter_item(item.id_unico)
+    _verificar(gravado is not None and gravado["titulo"] == item.titulo, "item relido do banco")
+    _verificar(
+        gravado is not None and gravado["status"] == "pendente", "status inicial é 'pendente'"
+    )
+    log.info("item gravado: id_unico=%s…", item.id_unico[:12])
+
+    banco.registrar_execucao("teste-banco", iniciado_em=iniciado_em, ok=True, itens_novos=1)
+    execucoes = banco.ultimas_execucoes("teste-banco", limite=1)
+    _verificar(bool(execucoes) and execucoes[0]["ok"] is True, "execução registrada em execucoes")
+
+    if args.manter:
+        log.info("item de teste mantido no banco (--manter)")
+    else:
+        banco.apagar_item(item.id_unico)
+        _verificar(not banco.existe(item.id_unico), "item de teste removido")
+
+    log.info("teste-banco concluído com sucesso")
+    return 0
+
+
+def comando_coletar(args: argparse.Namespace) -> int:
+    """Roda os coletores escolhidos. Falha (código 1) só se nenhum coletor der certo."""
+    cfg = config.carregar()
+    cfg.exigir_supabase()  # falha logo se o banco não estiver configurado
+    fontes = filtrar_fontes(
+        config.carregar_fontes_validas(), nomes=args.fonte or (), modulo=args.modulo
+    )
+    if not fontes:
+        log.error("nenhuma fonte corresponde aos filtros informados")
+        return 1
+
+    with ClienteHttp(cfg.user_agent) as http:
+        resultados = [executar(c) for c in montar_coletores(fontes, http)]
+
+    falhas = [r for r in resultados if not r.ok]
+    novos = sum(r.novos for r in resultados)
+    log.info(
+        "coleta concluída: %d fontes, %d ok, %d com falha, %d itens novos",
+        len(resultados),
+        len(resultados) - len(falhas),
+        len(falhas),
+        novos,
+    )
+    for falha in falhas:
+        log.warning("falhou: %s — %s", falha.coletor, falha.erro)
+    return 1 if len(falhas) == len(resultados) else 0
+
+
+def _montar_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="radar", description="Radar pessoal de informação.")
+    sub = parser.add_subparsers(dest="comando", required=True)
+
+    coletar = sub.add_parser("coletar", help="busca itens novos nas fontes do fontes.yaml")
+    escolha = coletar.add_mutually_exclusive_group(required=True)
+    escolha.add_argument("--todos", action="store_true", help="todas as fontes")
+    escolha.add_argument(
+        "--fonte", action="append", metavar="NOME", help="só esta fonte (pode repetir)"
+    )
+    escolha.add_argument("--modulo", choices=["noticias", "estagios", "concursos"])
+    coletar.set_defaults(funcao=comando_coletar)
+
+    teste = sub.add_parser("teste-banco", help="grava e lê um item de teste no Supabase")
+    teste.add_argument("--manter", action="store_true", help="não apaga o item de teste ao final")
+    teste.set_defaults(funcao=comando_teste_banco)
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    _configurar_logs()
+    args = _montar_parser().parse_args(argv)
+    funcao: Callable[[argparse.Namespace], int] = args.funcao
+    try:
+        return funcao(args)
+    except config.ErroConfiguracao as erro:
+        log.error("configuração: %s", erro)
+    except banco.ErroBanco as erro:
+        log.error("banco: %s", erro)
+    except FalhaVerificacao as erro:
+        log.error("verificação falhou: %s", erro)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

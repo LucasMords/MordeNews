@@ -1,0 +1,37 @@
+name: coletar
+
+on:
+  schedule:
+    - cron: "13 9 * * *"   # 06:13 em Brasília (cron do GitHub é em UTC)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Evita duas coletas simultâneas (ex.: agendada + manual).
+concurrency:
+  group: coletar
+  cancel-in-progress: false
+
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      RADAR_CONTATO: ${{ secrets.RADAR_CONTATO }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Instalar dependências
+        run: uv sync --frozen --no-dev
+
+      - name: Coletar todas as fontes
+        run: uv run --frozen --no-dev radar coletar --todos
+
+      # Bloco 2: aqui entra o passo `uv run radar triar`.

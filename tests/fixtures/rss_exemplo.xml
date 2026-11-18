@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Blog de Exemplo</title>
+    <link>https://blog.exemplo.com/</link>
+    <description>Feed de teste do radar</description>
+
+    <item>
+      <title>Nova versão do Python &amp; o que muda</title>
+      <link>https://blog.exemplo.com/python-novo?utm_source=rss&amp;utm_medium=feed</link>
+      <pubDate>Wed, 18 Nov 2026 10:00:00 +0000</pubDate>
+      <description><![CDATA[<p>Resumo <b>curto</b>.</p>]]></description>
+      <content:encoded><![CDATA[<p>Texto <strong>completo</strong> do artigo.</p><script>alert(1)</script><p>Segundo   parágrafo.</p>]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Ataque de <em>ransomware</em> atinge empresa]]></title>
+      <link>https://blog.exemplo.com/ransomware</link>
+      <pubDate>Tue, 17 Nov 2026 08:30:00 -0300</pubDate>
+      <description><![CDATA[Só a <a href="https://x.com">descrição</a>, sem content.]]></description>
+    </item>
+
+    <item>
+      <title>Notícia antiga, fora da janela de 72h</title>
+      <link>https://blog.exemplo.com/antiga</link>
+      <pubDate>Sun, 01 Nov 2026 12:00:00 +0000</pubDate>
+      <description>Velha.</description>
+    </item>
+
+    <item>
+      <title>Item sem link deve ser ignorado</title>
+      <pubDate>Wed, 18 Nov 2026 09:00:00 +0000</pubDate>
+      <description>Sem link.</description>
+    </item>
+
+    <item>
+      <title>Item sem data é mantido</title>
+      <link>https://blog.exemplo.com/sem-data</link>
+      <description>Sem data de publicação.</description>
+    </item>
+  </channel>
+</rss>

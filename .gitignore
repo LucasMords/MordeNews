@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Ambiente virtual
+.venv
+
+# Ferramentas
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Segredos — nunca commitar
+.env
+.env.*
+!.env.example
+
+# Portal (bloco 6)
+web/node_modules/
+web/.next/
+web/.vercel/
+
+# Sistema
+.DS_Store
+Thumbs.db

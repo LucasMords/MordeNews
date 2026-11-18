@@ -1,0 +1,53 @@
+# Fontes de coleta, agrupadas por módulo.
+#
+# Formato de cada fonte:
+#   - nome: nome-curto-unico        # minúsculas, números e hífen; vira o campo `fonte` do item
+#     tipo: rss                     # rss (html, pdf e api entram nos blocos 4 e 5)
+#     url: https://exemplo.com/feed
+#     janela_horas: 72              # opcional; só itens publicados nas últimas N horas (padrão 72)
+#     limite: 50                    # opcional; máximo de itens por execução (padrão e teto: 50)
+#
+# Lista de notícias aprovada pelo usuário em 2026-11-18. Todas foram checadas: o feed responde
+# e o robots.txt permite coleta. Lobsters e Canaltech ficaram de fora porque o robots.txt bloqueia.
+
+noticias:
+  # Tech/dev geral (EN)
+  - nome: hacker-news
+    tipo: rss
+    url: https://hnrss.org/newest?points=150   # só posts com 150+ pontos
+  - nome: ars-technica
+    tipo: rss
+    url: https://feeds.arstechnica.com/arstechnica/index
+  - nome: the-verge
+    tipo: rss
+    url: https://www.theverge.com/rss/index.xml
+  - nome: mit-technology-review
+    tipo: rss
+    url: https://www.technologyreview.com/feed/
+
+  # IA (EN)
+  - nome: simon-willison
+    tipo: rss
+    url: https://simonwillison.net/atom/everything/
+  - nome: hugging-face-blog
+    tipo: rss
+    url: https://huggingface.co/blog/feed.xml
+
+  # Dev e segurança (EN)
+  - nome: github-blog
+    tipo: rss
+    url: https://github.blog/feed/
+  - nome: the-hacker-news
+    tipo: rss
+    url: https://feeds.feedburner.com/TheHackersNews
+
+  # Brasil (PT)
+  - nome: tecnoblog
+    tipo: rss
+    url: https://tecnoblog.net/feed/
+  - nome: tabnews
+    tipo: rss
+    url: https://www.tabnews.com.br/recentes/rss
+
+estagios: []
+concursos: []

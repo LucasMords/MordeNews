@@ -1,0 +1,29 @@
+name: testes
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-e-testes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Instalar dependências
+        run: uv sync --frozen
+
+      - name: Lint
+        run: uv run ruff check . && uv run ruff format --check .
+
+      - name: Testes
+        run: uv run pytest

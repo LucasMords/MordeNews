@@ -1,0 +1,109 @@
+"""Modelos de dados compartilhados entre coletores, IA e banco."""
+
+from __future__ import annotations
+
+import hashlib
+from datetime import UTC, datetime
+from typing import Any, Literal
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+Modulo = Literal["noticias", "estagios", "concursos"]
+StatusItem = Literal["pendente", "processado", "descartado", "erro"]
+
+LIMITE_TEXTO = 4000
+
+
+def normalizar_url(url: str) -> str:
+    """Normaliza uma URL para deduplicação.
+
+    - remove espaços nas pontas, fragmento (#...) e parâmetros utm_*;
+    - deixa esquema e domínio em minúsculas;
+    - ordena os parâmetros restantes, para que a ordem não gere duplicatas.
+    """
+    partes = urlsplit(url.strip())
+    parametros = [
+        (chave, valor)
+        for chave, valor in parse_qsl(partes.query, keep_blank_values=True)
+        if not chave.lower().startswith("utm_")
+    ]
+    parametros.sort()
+    return urlunsplit(
+        (
+            partes.scheme.lower(),
+            partes.netloc.lower(),
+            partes.path or "/",
+            urlencode(parametros, doseq=True),
+            "",
+        )
+    )
+
+
+def gerar_id_unico(url: str) -> str:
+    """sha256 (hex) da URL normalizada."""
+    return hashlib.sha256(normalizar_url(url).encode("utf-8")).hexdigest()
+
+
+class Item(BaseModel):
+    """Item normalizado que todo coletor devolve."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    modulo: Modulo
+    fonte: str = Field(min_length=1)
+    titulo: str = Field(min_length=1)
+    url: str = Field(min_length=1)
+    publicado_em: datetime | None = None
+    texto: str = ""
+    id_unico: str = ""
+
+    @field_validator("texto")
+    @classmethod
+    def _truncar_texto(cls, valor: str) -> str:
+        return valor[:LIMITE_TEXTO]
+
+    @field_validator("publicado_em")
+    @classmethod
+    def _garantir_fuso(cls, valor: datetime | None) -> datetime | None:
+        if valor is not None and valor.tzinfo is None:
+            return valor.replace(tzinfo=UTC)
+        return valor
+
+    @model_validator(mode="after")
+    def _calcular_id_unico(self) -> Item:
+        if not self.id_unico:
+            self.id_unico = gerar_id_unico(self.url)
+        return self
+
+    def para_banco(self) -> dict[str, Any]:
+        """Dicionário pronto para inserir na tabela `itens`."""
+        return self.model_dump(mode="json")
+
+
+TipoFonte = Literal["rss"]  # html, pdf e api entram nos blocos 4 e 5
+
+
+class Fonte(BaseModel):
+    """Uma fonte do fontes.yaml."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    modulo: Modulo
+    nome: str = Field(min_length=1, pattern=r"^[a-z0-9][a-z0-9-]*$")
+    tipo: TipoFonte
+    url: str = Field(pattern=r"^https?://")
+    janela_horas: int = Field(default=72, gt=0)
+    limite: int = Field(default=50, gt=0, le=50)
+
+
+class ItemPendente(BaseModel):
+    """Item já gravado que aguarda triagem pela IA."""
+
+    id: int
+    modulo: Modulo
+    fonte: str
+    titulo: str
+    url: str
+    texto: str | None = None
+    tentativas_ia: int = 0

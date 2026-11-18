@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Weblog de Exemplo</title>
+  <link href="https://atom.exemplo.com/" rel="alternate"/>
+  <id>https://atom.exemplo.com/</id>
+  <updated>2026-11-18T11:00:00Z</updated>
+
+  <entry>
+    <title>LLMs locais ficaram mais rápidos</title>
+    <link href="https://atom.exemplo.com/2026/nov/18/llms/" rel="alternate"/>
+    <id>https://atom.exemplo.com/2026/nov/18/llms/</id>
+    <published>2026-11-18T11:00:00Z</published>
+    <updated>2026-11-18T11:30:00Z</updated>
+    <content type="html">&lt;p&gt;Conteúdo com &lt;code&gt;código&lt;/code&gt; e detalhes.&lt;/p&gt;</content>
+  </entry>
+
+  <entry>
+    <title>Só com updated e summary</title>
+    <link href="https://atom.exemplo.com/2026/nov/16/resumo/" rel="alternate"/>
+    <id>https://atom.exemplo.com/2026/nov/16/resumo/</id>
+    <updated>2026-11-16T20:00:00Z</updated>
+    <summary>Um resumo simples.</summary>
+  </entry>
+</feed>
