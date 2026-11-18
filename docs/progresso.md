@@ -3,7 +3,7 @@
 ## Estado atual
 
 - **Bloco 0 — Fundação:** concluído e validado no Supabase real (2026-11-18).
-- **Bloco 1 — Coletor RSS:** código pronto, 84 testes passando e coleta real validada localmente: 180 itens na 1ª execução, 0 duplicados na 2ª. **Falta** publicar no GitHub e rodar o workflow via `workflow_dispatch` (passos no fim da seção do bloco 1).
+- **Bloco 1 — Coletor RSS:** concluído (2026-11-18). Coleta local: 180 itens, e 0 duplicados na 2ª execução. No GitHub Actions (`workflow_dispatch`): 10/10 fontes ok e 7 itens novos sem duplicar, total de 187 no banco. O cron diário (06:13 BRT) está ativo. Aguardando o usuário validar para iniciar o bloco 2.
 
 ---
 
@@ -58,16 +58,17 @@ uv run radar coletar --todos             # todas; rodar de novo deve dar "0 iten
 
 No Supabase: **Table Editor → itens** (status `pendente`) e **execucoes** (uma linha por fonte por execução).
 
-### Para fechar o bloco 1 (GitHub)
+### GitHub
 
-1. Configurar a identidade do git com o **e-mail noreply do GitHub**, porque em repositório público o e-mail do autor aparece em cada commit.
-2. Criar o repositório público no GitHub e fazer o primeiro commit e o push.
-3. Em **Settings → Secrets and variables → Actions**, criar `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e (opcional) `RADAR_CONTATO`.
-4. Em **Actions → coletar → Run workflow**, rodar manualmente e conferir o log.
+- Repositório público: `LucasMords/MordeNews`. Commits com o e-mail noreply do GitHub, configurado só neste repositório.
+- Secrets em **Settings → Secrets and variables → Actions → Secrets**: `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` criados. `RADAR_CONTATO` ainda não.
+- `testes` passou no push. `coletar` passou via `workflow_dispatch` em 2026-11-18 15:48 UTC.
+- `.gitattributes` força quebras de linha LF, porque o CI roda em Linux e o desenvolvimento é no Windows.
 
 ### Pendências e decisões
 
-- [ ] Publicar no GitHub e rodar o `coletar` via `workflow_dispatch` (acima).
+- [x] Publicar no GitHub e rodar o `coletar` via `workflow_dispatch`.
+- [ ] Conferir amanhã (2026-11-19) se a execução **agendada** das 06:13 BRT rodou em **Actions → coletar**. O GitHub pode atrasar crons alguns minutos.
 - [ ] Definir o valor de `RADAR_CONTATO` (sugestão: apelido do Gmail com `+radar`), no `.env` e no Secret.
 - [ ] Hugging Face sem texto: aceitar assim (triagem só pelo título) ou trocar por outra fonte de IA?
 - Monitoramento (bloco 9): as execuções já ficam registradas em `execucoes`. Os alertas no Telegram dependem do bot (bloco 3).
