@@ -4,7 +4,7 @@ Radar pessoal de informação: coleta notícias tech, vagas de estágio e editai
 
 Fluxo: `fontes → coletores agendados → triagem por IA → banco (Supabase) → Telegram / portal web`.
 
-Regras de desenvolvimento e o plano por blocos estão em [CLAUDE.md](CLAUDE.md); o estado atual fica em [docs/progresso.md](docs/progresso.md).
+Regras de desenvolvimento e o plano por blocos estão em [CLAUDE.md](CLAUDE.md); o estado atual fica em [docs/progresso.md](docs/progresso.md). Para montar o ambiente em outra máquina e retomar o trabalho, veja [docs/retomar.md](docs/retomar.md).
 
 ## Começando
 

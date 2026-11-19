@@ -2,10 +2,13 @@
 
 ## Estado atual
 
+> **Trocando de máquina?** Veja [`retomar.md`](retomar.md): como montar o ambiente, quais arquivos levar à mão e onde o Bloco 4 parou.
+
 - **Bloco 0 — Fundação:** concluído e validado no Supabase real (2026-11-18).
 - **Bloco 1 — Coletor RSS:** concluído (2026-11-18). Coleta local: 180 itens, e 0 duplicados na 2ª execução. No GitHub Actions (`workflow_dispatch`): 10/10 fontes ok e 7 itens novos sem duplicar, total de 187 no banco. O cron diário (06:13 BRT) está ativo.
 - **Bloco 2 — Triagem por IA:** concluído (2026-11-19). Amostra de 20 notas aprovada pelo usuário. No GitHub Actions (`workflow_dispatch`, 12:48 UTC): coleta de 106 itens novos e triagem dos 106, sem erro. No banco: 265 processados, 28 descartados, 0 pendentes. 
-- **Bloco 3 — Resumo diário por e-mail:** concluído (2026-11-19). **Fim do MVP.** 1º envio local: 30 assuntos (45 itens). O usuário confirmou que chegou na caixa de entrada, fora do spam. Depois, via `workflow_dispatch` no GitHub: 31 itens novos, sem repetir nenhum do 1º envio (76 itens distintos marcados). Aguardando o usuário validar para iniciar o bloco 4.
+- **Bloco 3 — Resumo diário por e-mail:** concluído (2026-11-19). **Fim do MVP.** 1º envio local: 30 assuntos (45 itens). O usuário confirmou que chegou na caixa de entrada, fora do spam. Depois, via `workflow_dispatch` no GitHub: 31 itens novos, sem repetir nenhum do 1º envio (76 itens distintos marcados). 
+- **Bloco 4 — Vagas de estágio:** pesquisa de fontes feita em 2026-11-19, aguardando decisões do usuário. Resultados e pendências em [`retomar.md`](retomar.md#5-bloco-4--onde-paramos-exatamente).
 - ⚠️ **O cron das 06:13 BRT de 2026-11-19 não disparou** (0 execuções `schedule` no GitHub, workflow `active`). O GitHub pode atrasar ou descartar crons em horários de carga, principalmente em workflows recém-criados. Conferir em 2026-11-20. Se falhar de novo, adicionar um segundo horário de reserva no `coletar.yml`. Rodar de novo não causa problema: a coleta não duplica e a triagem só pega pendentes.
 
 ---
