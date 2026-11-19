@@ -7,11 +7,13 @@ import logging
 import sys
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
+from pathlib import Path
 
 from radar import banco, config
 from radar.coletores.base import executar
 from radar.coletores.http import ClienteHttp
 from radar.coletores.registro import filtrar_fontes, montar_coletores
+from radar.entrega import correio, resumo
 from radar.ia import cliente as ia_cliente
 from radar.ia import triagem
 from radar.modelos import Item
@@ -151,6 +153,19 @@ def comando_revisar(args: argparse.Namespace) -> int:
     return 0
 
 
+def comando_resumo(args: argparse.Namespace) -> int:
+    """Envia o resumo diário por e-mail (ou só mostra, com --simular)."""
+    config.carregar().exigir_supabase()
+    resultado = resumo.enviar_resumo(simular=args.simular)
+    if args.simular and resultado.mensagem:
+        print(f"Assunto: {resultado.mensagem.assunto}\n")
+        print(resultado.mensagem.texto)
+        if args.salvar:
+            args.salvar.write_text(resultado.mensagem.html, encoding="utf-8")
+            log.info("prévia HTML salva em %s", args.salvar)
+    return 0
+
+
 def _montar_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="radar", description="Radar pessoal de informação.")
     sub = parser.add_subparsers(dest="comando", required=True)
@@ -184,6 +199,15 @@ def _montar_parser() -> argparse.ArgumentParser:
     revisar.add_argument("--quantidade", type=int, default=20)
     revisar.set_defaults(funcao=comando_revisar)
 
+    resumo_cmd = sub.add_parser("resumo", help="envia o resumo diário por e-mail")
+    resumo_cmd.add_argument(
+        "--simular", action="store_true", help="monta e mostra o resumo, sem enviar nem marcar"
+    )
+    resumo_cmd.add_argument(
+        "--salvar", type=Path, metavar="ARQUIVO.html", help="com --simular, salva a prévia HTML"
+    )
+    resumo_cmd.set_defaults(funcao=comando_resumo)
+
     teste = sub.add_parser("teste-banco", help="grava e lê um item de teste no Supabase")
     teste.add_argument("--manter", action="store_true", help="não apaga o item de teste ao final")
     teste.set_defaults(funcao=comando_teste_banco)
@@ -202,6 +226,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         log.error("banco: %s", erro)
     except ia_cliente.ErroIA as erro:
         log.error("IA: %s", erro)
+    except correio.ErroEnvio as erro:
+        log.error("e-mail: %s", erro)
     except FalhaVerificacao as erro:
         log.error("verificação falhou: %s", erro)
     return 1

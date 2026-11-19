@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import replace
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -57,8 +58,6 @@ def ambiente_coleta(
         supabase_service_role_key="sb_secret_teste",
         gemini_api_key=None,
         gemini_model="x",
-        telegram_bot_token=None,
-        telegram_chat_id=None,
         nota_minima_resumo=6,
     )
     fontes: list[Fonte] = [
@@ -124,8 +123,6 @@ def ambiente_triagem(monkeypatch: pytest.MonkeyPatch, supabase: SupabaseFalso) -
         supabase_service_role_key="sb_secret_teste",
         gemini_api_key="chave-falsa",
         gemini_model="x",
-        telegram_bot_token=None,
-        telegram_chat_id=None,
         nota_minima_resumo=6,
     )
     monkeypatch.setattr(config, "carregar", lambda: cfg)
@@ -185,6 +182,29 @@ def test_triar_erro_da_ia_retorna_1(
 
     monkeypatch.setattr(ia_cliente, "classificar_lote", quebrado)
     assert cli.main(["triar"]) == 1
+
+
+def test_resumo_simular_mostra_e_salva_previa(
+    ambiente_triagem: SupabaseFalso,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(ia_cliente, "classificar_lote", _classificador)
+    assert cli.main(["triar"]) == 0
+    previa = tmp_path / "previa.html"
+
+    assert cli.main(["resumo", "--simular", "--salvar", str(previa)]) == 0
+
+    saida = capsys.readouterr().out
+    assert "Assunto: MordeNews" in saida and "[9] Java 27 lançado" in saida
+    assert "Cupom" not in saida  # descartado não entra
+    assert "<html" in previa.read_text(encoding="utf-8")
+    assert not any(linha.get("enviado_em") for linha in ambiente_triagem.tabelas["itens"])
+
+
+def test_resumo_sem_configuracao_de_email_retorna_1(ambiente_triagem: SupabaseFalso) -> None:
+    assert cli.main(["resumo"]) == 1
 
 
 def test_triar_sem_chave_do_gemini_retorna_1(

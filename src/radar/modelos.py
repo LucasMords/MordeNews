@@ -109,6 +109,26 @@ class ItemPendente(BaseModel):
     tentativas_ia: int = 0
 
 
+class ItemResumo(BaseModel):
+    """Item triado e ainda não enviado, pronto para entrar no resumo diário."""
+
+    id: int
+    modulo: Modulo
+    fonte: str
+    titulo: str
+    url: str
+    publicado_em: datetime | None = None
+    nota: int
+    resumo: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    prazo: date | None = None
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _tags_nulas(cls, valor: object) -> object:
+        return valor or []
+
+
 class Resultado(BaseModel):
     """Triagem de um item, como devolvida pela IA e validada."""
 

@@ -11,8 +11,12 @@ def _limpar_ambiente(monkeypatch: pytest.MonkeyPatch) -> None:
         "SUPABASE_SERVICE_ROLE_KEY",
         "GEMINI_API_KEY",
         "GEMINI_MODEL",
-        "TELEGRAM_BOT_TOKEN",
-        "TELEGRAM_CHAT_ID",
+        "EMAIL_REMETENTE",
+        "EMAIL_SENHA_APP",
+        "EMAIL_DESTINO",
+        "SMTP_HOST",
+        "SMTP_PORTA",
+        "RESUMO_MAXIMO",
         "NOTA_MINIMA_RESUMO",
         "RADAR_CONTATO",
     ):
@@ -43,7 +47,7 @@ def test_exigir_supabase_ok(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_repr_nao_expoe_segredos(monkeypatch: pytest.MonkeyPatch) -> None:
     _limpar_ambiente(monkeypatch)
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "segredo-super-secreto")
-    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "token-secreto")
+    monkeypatch.setenv("EMAIL_SENHA_APP", "token-secreto")
     texto = repr(config.ler_ambiente())
     assert "segredo-super-secreto" not in texto
     assert "token-secreto" not in texto
@@ -127,6 +131,19 @@ def test_perfil_ausente_ou_vazio(tmp_path: Path) -> None:
 def test_modelo_de_perfil_existe_no_repositorio() -> None:
     # O perfil real (config/perfil.md) é privado e não está no git; só o modelo está.
     assert len(config.carregar_perfil(config.PASTA_CONFIG / "perfil.exemplo.md")) > 100
+
+
+def test_exigir_email(monkeypatch: pytest.MonkeyPatch) -> None:
+    _limpar_ambiente(monkeypatch)
+    with pytest.raises(config.ErroConfiguracao, match="EMAIL_REMETENTE"):
+        config.ler_ambiente().exigir_email()
+    monkeypatch.setenv("EMAIL_REMETENTE", "robo@exemplo.com")
+    monkeypatch.setenv("EMAIL_SENHA_APP", "abcd efgh ijkl mnop")
+    monkeypatch.setenv("EMAIL_DESTINO", "eu@exemplo.com")
+    cfg = config.ler_ambiente()
+    assert cfg.exigir_email() == ("robo@exemplo.com", "abcdefghijklmnop", "eu@exemplo.com")
+    assert (cfg.smtp_host, cfg.smtp_porta, cfg.resumo_maximo) == ("smtp.gmail.com", 465, 30)
+    assert "abcd" not in repr(cfg) and "eu@exemplo.com" not in repr(cfg)
 
 
 def test_exigir_gemini(monkeypatch: pytest.MonkeyPatch) -> None:

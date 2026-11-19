@@ -6,7 +6,7 @@ Este arquivo orienta qualquer agente de IA que trabalhe neste repositório. Leia
 
 Uma aplicação pessoal que **busca informação sozinha e entrega ao usuário**: notícias do mundo tech, vagas de estágio e editais de concurso. O usuário não navega atrás de nada — o sistema coleta, filtra por relevância, resume e avisa.
 
-Fluxo: `fontes → coletores agendados → triagem por IA → banco → Telegram / portal web`.
+Fluxo: `fontes → coletores agendados → triagem por IA → banco → e-mail / portal web`.
 
 ### Princípio central (não viole)
 
@@ -25,7 +25,7 @@ Fluxo: `fontes → coletores agendados → triagem por IA → banco → Telegram
 | Banco | Supabase (Postgres; `pgvector` só a partir do bloco 7) |
 | IA de triagem | Gemini Flash / Flash-Lite via SDK `google-genai`, plano gratuito |
 | IA "editor-chefe" e busca aberta | Rotinas do Claude no plano Pro do usuário (bloco 8, fora do código Python) |
-| Notificações | Bot do Telegram via Bot API com `httpx` |
+| Notificações | E-mail via SMTP do Gmail (`smtplib`, biblioteca padrão), enviado de uma conta Gmail dedicada ao projeto (trocado do Telegram pelo usuário em 2026-11-19) |
 | Portal (bloco 6) | Next.js + TypeScript na Vercel |
 | Qualidade | `ruff` (lint + format), `pytest` |
 
@@ -63,7 +63,8 @@ Fluxo: `fontes → coletores agendados → triagem por IA → banco → Telegram
 │   │   ├── triagem.py
 │   │   └── prompts/            # um arquivo .md por módulo
 │   └── entrega/
-│       └── telegram.py
+│       ├── correio.py          # monta e envia o e-mail (SMTP)
+│       └── resumo.py           # seleciona itens, envia o resumo diário, marca enviados
 ├── tests/
 │   ├── fixtures/               # XML/HTML/PDF salvos — testes não acessam a rede
 │   └── ...
@@ -153,9 +154,11 @@ SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=      # só no backend/GitHub Secrets, NUNCA no portal
 GEMINI_API_KEY=
 GEMINI_MODEL=gemini-3.5-flash-lite   # escolhido pelo usuário em 2026-11-18; o 3.8 Flash ficava indisponível (503/504)
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_CHAT_ID=
+EMAIL_REMETENTE=                # Gmail dedicado do projeto (precisa de verificação em 2 etapas)
+EMAIL_SENHA_APP=                # senha de app do Google, NUNCA a senha da conta
+EMAIL_DESTINO=                  # quem recebe o resumo
 NOTA_MINIMA_RESUMO=6
+RESUMO_MAXIMO=30
 ```
 
 Mantenha `.env.example` atualizado sempre que criar uma variável nova.
@@ -196,10 +199,11 @@ Mantenha `.env.example` atualizado sempre que criar uma variável nova.
 - Só `banco.py` fala com o Supabase. Funções pequenas e nomeadas: `existe(id_unico)`, `salvar_itens(itens)`, `pendentes(modulo, limite)`, `gravar_triagem(resultados)`, `para_resumo(desde)`, `marcar_enviados(ids)`, `registrar_execucao(...)`.
 - Use `upsert` por `id_unico` com `ignore_duplicates` para nunca duplicar.
 
-### Telegram
-- `parse_mode=HTML`, escape de `<`, `>` e `&` nos textos.
-- Limite de 4.096 caracteres por mensagem: quebre o resumo em várias mensagens.
-- Formato do resumo: agrupado por módulo, ordenado por nota, cada item com título em link, resumo de 1–2 linhas e, se houver, o prazo.
+### E-mail
+- Mensagem com HTML e versão em texto puro; escape de `<`, `>` e `&` (`html.escape`) em todo texto vindo de fora.
+- SMTP com SSL (`smtp.gmail.com:465`), timeout de 30s, autenticação com senha de app.
+- Formato do resumo: agrupado por módulo, ordenado por nota, cada item com título em link, fonte, data, resumo de 1–2 linhas e, se houver, o prazo. No máximo `RESUMO_MAXIMO` itens; o rodapé informa quantos ficaram de fora.
+- Só marque `enviado_em` depois que o envio der certo. Dia sem itens não gera e-mail.
 
 ### Código
 - Tipagem em tudo, funções curtas, nomes em português coerentes com o domínio (`coletar`, `triar`, `itens`), mensagens de log claras.
@@ -208,7 +212,7 @@ Mantenha `.env.example` atualizado sempre que criar uma variável nova.
 
 ### Testes
 - `pytest` sem acesso à rede: use os arquivos de `tests/fixtures/` e faça mock de `httpx`, do Supabase e de `classificar_lote`.
-- Mínimo por bloco: parsing de cada tipo de coletor, normalização de URL/deduplicação, validação da resposta da IA (incluindo resposta quebrada) e montagem/quebra do resumo do Telegram.
+- Mínimo por bloco: parsing de cada tipo de coletor, normalização de URL/deduplicação, validação da resposta da IA (incluindo resposta quebrada) e montagem do resumo por e-mail.
 - `uv run ruff check . && uv run pytest` precisa passar antes de considerar um bloco pronto.
 
 ### GitHub Actions
@@ -239,9 +243,9 @@ Trabalhe **um bloco por vez**. Ao terminar cada bloco: rode lint e testes, atual
 - `ia/cliente.py`, `ia/triagem.py`, `prompts/noticias.md`.
 - **Pronto quando:** itens pendentes ganham nota, resumo e tags; o usuário revisa uma amostra de 20 e concorda com as notas.
 
-### Bloco 3 — Resumo diário no Telegram (fim do MVP)
-- `entrega/telegram.py`, comando `radar resumo`, `resumo-diario.yml`.
-- **Pronto quando:** o resumo chega no celular todo dia e os itens enviados não se repetem no dia seguinte.
+### Bloco 3 — Resumo diário por e-mail (fim do MVP)
+- `entrega/correio.py`, `entrega/resumo.py`, comando `radar resumo`, `resumo-diario.yml`.
+- **Pronto quando:** o resumo chega por e-mail todo dia e os itens enviados não se repetem no dia seguinte.
 
 ### Bloco 4 — Vagas de estágio
 - Coletores HTML/API, `prompts/estagios.md`, extração dos campos da seção 4.
@@ -249,7 +253,7 @@ Trabalhe **um bloco por vez**. Ao terminar cada bloco: rode lint e testes, atual
 
 ### Bloco 5 — Editais de concurso
 - Coletores HTML e PDF, `prompts/concursos.md`, preenchimento de `prazo`.
-- Comando `radar alertas-prazo`: avisa no Telegram itens salvos ou de nota alta com prazo em até 3 dias.
+- Comando `radar alertas-prazo`: avisa por e-mail itens salvos ou de nota alta com prazo em até 3 dias.
 - **Pronto quando:** um edital de teste com prazo próximo gera alerta.
 
 ### Bloco 6 — Portal web
@@ -258,14 +262,14 @@ Trabalhe **um bloco por vez**. Ao terminar cada bloco: rode lint e testes, atual
 - **Pronto quando:** publicado na Vercel, acessível só pelo usuário.
 
 ### Bloco 7 — Feedback e personalização
-- Botões 👍/👎 no portal e inline keyboard no Telegram → tabela `feedback`.
+- Botões 👍/👎 no portal (e links para eles no e-mail) → tabela `feedback`.
 - Exemplos recentes de itens aprovados/rejeitados entram no prompt de triagem.
 
 ### Bloco 8 — Rotinas do Claude (configuração, não código Python)
 - "Editor-chefe" diário e busca aberta semanal, configurados pelo usuário nas rotinas do Claude. Aqui, o agente só documenta o prompt e, se necessário, expõe um endpoint/consulta para a rotina ler os itens do dia.
 
 ### Bloco 9 — Monitoramento (transversal, começa no bloco 1)
-- Alerta no Telegram se um coletor falhar 2 vezes seguidas ou passar 3 dias sem itens novos.
+- Alerta por e-mail se um coletor falhar 2 vezes seguidas ou passar 3 dias sem itens novos.
 - Limpeza mensal: apaga `texto` de itens com mais de 90 dias não salvos (o Supabase gratuito tem 500 MB).
 
 ## 8. Quando parar e perguntar
@@ -277,7 +281,7 @@ Trabalhe **um bloco por vez**. Ao terminar cada bloco: rode lint e testes, atual
 
 ## 9. Fora de escopo por enquanto
 
-App mobile, múltiplos usuários, login social, imagens nas notícias, coleta de redes sociais, envio por e-mail (pode entrar depois do bloco 7).
+App mobile, múltiplos usuários, login social, imagens nas notícias, coleta de redes sociais, Telegram (substituído por e-mail em 2026-11-19).
 
 ## 10. Definição de pronto (vale para todo bloco)
 

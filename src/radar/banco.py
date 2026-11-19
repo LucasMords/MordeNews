@@ -14,7 +14,7 @@ from typing import Any
 import httpx
 
 from radar import config
-from radar.modelos import Item, ItemPendente, Modulo, Resultado
+from radar.modelos import Item, ItemPendente, ItemResumo, Modulo, Resultado
 
 log = logging.getLogger(__name__)
 
@@ -211,6 +211,27 @@ def triados_recentes(modulo: Modulo, limite: int) -> list[dict[str, Any]]:
         },
     )
     return list(linhas or [])
+
+
+def para_resumo(desde: datetime, nota_minima: int, limite: int = 500) -> list[ItemResumo]:
+    """Itens processados, ainda não enviados, coletados a partir de `desde` e com nota mínima.
+
+    Vêm ordenados por nota (maior primeiro) e, no empate, pelos mais recentes.
+    """
+    linhas = _requisitar(
+        "GET",
+        "/itens",
+        params={
+            "select": "id,modulo,fonte,titulo,url,publicado_em,nota,resumo,tags,prazo",
+            "status": "eq.processado",
+            "enviado_em": "is.null",
+            "nota": f"gte.{nota_minima}",
+            "coletado_em": f"gte.{desde.isoformat()}",
+            "order": "nota.desc,publicado_em.desc.nullslast,id.desc",
+            "limit": str(limite),
+        },
+    )
+    return [ItemResumo.model_validate(linha) for linha in linhas or []]
 
 
 def marcar_enviados(ids: Sequence[int]) -> None:

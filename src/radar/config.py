@@ -31,10 +31,14 @@ class Configuracao:
     supabase_service_role_key: str | None
     gemini_api_key: str | None
     gemini_model: str
-    telegram_bot_token: str | None
-    telegram_chat_id: str | None
     nota_minima_resumo: int
     contato: str | None = None
+    email_remetente: str | None = None
+    email_senha_app: str | None = None
+    email_destino: str | None = None
+    smtp_host: str = "smtp.gmail.com"
+    smtp_porta: int = 465
+    resumo_maximo: int = 30
 
     def __repr__(self) -> str:  # nunca expor chaves nem dados pessoais em logs ou tracebacks
         return (
@@ -55,6 +59,13 @@ class Configuracao:
 
     def exigir_gemini(self) -> str:
         return _exigir("GEMINI_API_KEY", self.gemini_api_key)
+
+    def exigir_email(self) -> tuple[str, str, str]:
+        """Devolve (remetente, senha_app, destino). Espaços da senha de app são removidos."""
+        remetente = _exigir("EMAIL_REMETENTE", self.email_remetente)
+        senha = _exigir("EMAIL_SENHA_APP", self.email_senha_app).replace(" ", "")
+        destino = _exigir("EMAIL_DESTINO", self.email_destino)
+        return remetente, senha, destino
 
 
 def _exigir(nome: str, valor: str | None) -> str:
@@ -87,10 +98,14 @@ def ler_ambiente() -> Configuracao:
         supabase_service_role_key=_texto("SUPABASE_SERVICE_ROLE_KEY"),
         gemini_api_key=_texto("GEMINI_API_KEY"),
         gemini_model=_texto("GEMINI_MODEL") or "gemini-3.5-flash-lite",
-        telegram_bot_token=_texto("TELEGRAM_BOT_TOKEN"),
-        telegram_chat_id=_texto("TELEGRAM_CHAT_ID"),
         nota_minima_resumo=_inteiro("NOTA_MINIMA_RESUMO", 6),
         contato=_texto("RADAR_CONTATO"),
+        email_remetente=_texto("EMAIL_REMETENTE"),
+        email_senha_app=_texto("EMAIL_SENHA_APP"),
+        email_destino=_texto("EMAIL_DESTINO"),
+        smtp_host=_texto("SMTP_HOST") or "smtp.gmail.com",
+        smtp_porta=_inteiro("SMTP_PORTA", 465),
+        resumo_maximo=_inteiro("RESUMO_MAXIMO", 30),
     )
 
 

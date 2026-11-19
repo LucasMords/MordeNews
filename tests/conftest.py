@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from itertools import count
 from pathlib import Path
 from typing import Any
@@ -24,6 +24,7 @@ class SupabaseFalso:
         self.tabelas: dict[str, list[dict[str, Any]]] = {"itens": [], "execucoes": []}
         self.requisicoes: list[httpx.Request] = []
         self._ids = count(1)
+        self._inicio = datetime.now(UTC)
         self.falhar_com: int | None = None
 
     # --------------------------------------------------------- filtros
@@ -46,7 +47,17 @@ class SupabaseFalso:
                 return False
             if operador == "in" and str(valor) not in alvo.strip("()").split(","):
                 return False
+            if operador == "is" and alvo == "null" and valor is not None:
+                return False
+            if operador == "gte" and (valor is None or not SupabaseFalso._maior_igual(valor, alvo)):
+                return False
         return True
+
+    @staticmethod
+    def _maior_igual(valor: Any, alvo: str) -> bool:
+        if isinstance(valor, int | float):
+            return valor >= float(alvo)
+        return str(valor) >= alvo  # datas ISO comparam bem como texto
 
     @staticmethod
     def _selecionar(linha: dict[str, Any], select: str | None) -> dict[str, Any]:
@@ -75,7 +86,7 @@ class SupabaseFalso:
                     coluna, _, direcao = criterio.partition(".")
                     achadas.sort(
                         key=lambda linha, c=coluna: (linha.get(c) is not None, linha.get(c) or 0),
-                        reverse=direcao == "desc",
+                        reverse=direcao.startswith("desc"),
                     )
             if "limit" in params:
                 achadas = achadas[: int(params["limit"])]
@@ -98,7 +109,8 @@ class SupabaseFalso:
                     "id": novo_id,
                     "status": "pendente",
                     "tentativas_ia": 0,
-                    "coletado_em": f"2026-11-18T12:{novo_id // 60:02d}:{novo_id % 60:02d}+00:00",
+                    # hora real + id: mantém a ordem de inserção e funciona com janelas relativas
+                    "coletado_em": (self._inicio + timedelta(seconds=novo_id)).isoformat(),
                 }
                 linha = {**padrao, **nova}
                 linhas.append(linha)

@@ -4,8 +4,45 @@
 
 - **Bloco 0 — Fundação:** concluído e validado no Supabase real (2026-11-18).
 - **Bloco 1 — Coletor RSS:** concluído (2026-11-18). Coleta local: 180 itens, e 0 duplicados na 2ª execução. No GitHub Actions (`workflow_dispatch`): 10/10 fontes ok e 7 itens novos sem duplicar, total de 187 no banco. O cron diário (06:13 BRT) está ativo.
-- **Bloco 2 — Triagem por IA:** concluído (2026-11-19). Amostra de 20 notas aprovada pelo usuário. No GitHub Actions (`workflow_dispatch`, 12:48 UTC): coleta de 106 itens novos e triagem dos 106, sem erro. No banco: 265 processados, 28 descartados, 0 pendentes. Aguardando o usuário validar para iniciar o bloco 3.
+- **Bloco 2 — Triagem por IA:** concluído (2026-11-19). Amostra de 20 notas aprovada pelo usuário. No GitHub Actions (`workflow_dispatch`, 12:48 UTC): coleta de 106 itens novos e triagem dos 106, sem erro. No banco: 265 processados, 28 descartados, 0 pendentes. 
+- **Bloco 3 — Resumo diário por e-mail:** código pronto, 171 testes passando e prévia gerada com dados reais. **Falta** o usuário criar o Gmail do projeto e a senha de app, o primeiro envio real e rodar o `resumo-diario` via `workflow_dispatch`.
 - ⚠️ **O cron das 06:13 BRT de 2026-11-19 não disparou** (0 execuções `schedule` no GitHub, workflow `active`). O GitHub pode atrasar ou descartar crons em horários de carga, principalmente em workflows recém-criados. Conferir em 2026-11-20. Se falhar de novo, adicionar um segundo horário de reserva no `coletar.yml`. Rodar de novo não causa problema: a coleta não duplica e a triagem só pega pendentes.
+
+---
+
+## Bloco 3 — Resumo diário por e-mail (2026-11-19, em andamento)
+
+### Decisão do usuário: e-mail no lugar do Telegram
+
+Em 2026-11-19 o usuário pediu para trocar o Telegram por e-mail (**só e-mail**, com o resumo completo no corpo até o portal existir). O `CLAUDE.md` foi atualizado nas seções 1, 2, 3, 5, 6, 7 (blocos 3, 5, 7 e 9) e 9. O envio sai de uma **conta Gmail comum e dedicada ao projeto**, com verificação em 2 etapas e **senha de app**, para não expor a caixa pessoal se o secret vazar.
+
+### O que foi feito
+
+- `entrega/correio.py`: monta o e-mail em HTML (layout de uma coluna, estilos inline, nota colorida, prazo em destaque) e em texto puro. Todo texto externo passa por `html.escape`. Envia por SMTP com SSL (`smtp.gmail.com:465`, timeout de 30s). Login recusado vira uma mensagem clara, sem expor a senha.
+- `entrega/agrupamento.py`: junta a **mesma notícia vinda de fontes diferentes**, sem IA. A regra:
+  - Se os dois itens citam CVEs, só são o mesmo assunto se for o mesmo CVE. CVEs diferentes nunca se juntam, mesmo com título parecido.
+  - Se ao menos um não cita CVE, juntam quando compartilham um nome com letras e números (`java4shell`) ou quando têm ao menos 2 palavras significativas em comum, cobrindo 60% do título mais curto.
+  - A relação é transitiva, e o item de maior nota vira o principal. Os outros aparecem como "Também em: fonte, fonte", com link.
+- `entrega/resumo.py`: pega os itens `processado` ainda não enviados, com nota ≥ `NOTA_MINIMA_RESUMO`, coletados nas últimas 36h. Agrupa, envia os `RESUMO_MAXIMO` (30) assuntos de maior nota e **só depois do envio** marca `enviado_em` em todos os itens dos assuntos enviados, incluindo os repetidos. Dia sem itens não gera e-mail. Registra `resumo-diario` em `execucoes`.
+- `banco.py`: `para_resumo(desde, nota_minima)`.
+- CLI: `radar resumo` e `radar resumo --simular [--salvar previa.html]`. O modo simulação não envia, não marca e não pede credenciais.
+- `.github/workflows/resumo-diario.yml`: cron `7 10 * * *` (07:07 BRT) e `workflow_dispatch`. Usa os secrets `EMAIL_REMETENTE`, `EMAIL_SENHA_APP` e `EMAIL_DESTINO`. `NOTA_MINIMA_RESUMO` e `RESUMO_MAXIMO` são opcionais, na aba Variables.
+- Variáveis novas: `EMAIL_REMETENTE`, `EMAIL_SENHA_APP`, `EMAIL_DESTINO`, `RESUMO_MAXIMO` e as opcionais `SMTP_HOST` e `SMTP_PORTA`. As do Telegram foram removidas.
+- Sem dependências novas: `smtplib`, `email` e `html` são da biblioteca padrão.
+
+### Prévia com dados reais (2026-11-19)
+
+172 itens candidatos viraram 155 assuntos depois do agrupamento. Exemplos de grupos: Java4Shell com 9 itens de 3 fontes, Gemini 4 Neon com 4, Nvidia/China com 3 (PT e EN), DaisyRose-27B com 3. O e-mail leva os 30 assuntos de maior nota (45 itens). Os outros 127 ficam de fora. Como este primeiro envio junta 3 dias de acúmulo, eles saem da janela de 36h e não serão enviados depois. Nos dias normais o volume deve ser bem menor.
+
+**Limitação conhecida:** a mesma notícia em PT e EN com palavras diferentes (ex.: "Falhas no NGINX HTTP/2..." × "10-Year-Old NGINX HTTP/2 Flaw...") nem sempre é agrupada. Melhorar isso sem juntar assuntos diferentes por engano exigiria IA. Fica para o "editor-chefe" (bloco 8).
+
+### Como testar
+
+```powershell
+uv run ruff check . ; uv run pytest
+$env:PYTHONIOENCODING="utf-8"; uv run radar resumo --simular --salvar previa.html   # abre previa.html no navegador
+uv run radar resumo                                                                   # envia de verdade
+```
 
 ---
 
