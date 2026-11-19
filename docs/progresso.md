@@ -4,11 +4,12 @@
 
 - **Bloco 0 — Fundação:** concluído e validado no Supabase real (2026-11-18).
 - **Bloco 1 — Coletor RSS:** concluído (2026-11-18). Coleta local: 180 itens, e 0 duplicados na 2ª execução. No GitHub Actions (`workflow_dispatch`): 10/10 fontes ok e 7 itens novos sem duplicar, total de 187 no banco. O cron diário (06:13 BRT) está ativo.
-- **Bloco 2 — Triagem por IA:** 138 testes passando e triagem real feita em 2026-11-19 (186 itens, 0 erros de cota). **Falta** o usuário aprovar a amostra de 20 notas, publicar no GitHub e rodar o `coletar` via `workflow_dispatch`.
+- **Bloco 2 — Triagem por IA:** concluído (2026-11-19). Amostra de 20 notas aprovada pelo usuário. No GitHub Actions (`workflow_dispatch`, 12:48 UTC): coleta de 106 itens novos e triagem dos 106, sem erro. No banco: 265 processados, 28 descartados, 0 pendentes. Aguardando o usuário validar para iniciar o bloco 3.
+- ⚠️ **O cron das 06:13 BRT de 2026-11-19 não disparou** (0 execuções `schedule` no GitHub, workflow `active`). O GitHub pode atrasar ou descartar crons em horários de carga, principalmente em workflows recém-criados. Conferir em 2026-11-20. Se falhar de novo, adicionar um segundo horário de reserva no `coletar.yml`. Rodar de novo não causa problema: a coleta não duplica e a triagem só pega pendentes.
 
 ---
 
-## Bloco 2 — Triagem por IA (2026-11-18, em andamento)
+## Bloco 2 — Triagem por IA (2026-11-18 a 2026-11-19)
 
 ### O que foi feito
 
@@ -37,6 +38,17 @@
 - **Problema encontrado e corrigido:** itens sem texto (Hacker News e Hugging Face) eram descartados com nota 0, mesmo com uma instrução no prompt para não fazer isso. Na correção, o próprio código (`texto_para_ia`) troca o texto vazio por um aviso explícito ("a fonte não fornece texto; avalie pelo título"). Para o Hacker News, os metadados viram "Pontos no Hacker News: N; comentários: M". Os 24 itens dessas duas fontes voltaram para `pendente` e foram re-triados: nenhum descarte por falta de texto.
 - Distribuição das notas: 0:4 · 1:9 · 2:6 · 3:11 · 4:19 · 5:34 · 6:41 · 7:24 · 8:21 · 9:10 · 10:8. Com `NOTA_MINIMA_RESUMO=6`, cerca de 100 itens entrariam no resumo desta primeira rodada, que acumulou 72h. Num dia normal devem ser bem menos.
 - Amostra de 20 (2 por fonte: maior e menor nota) **aprovada pelo usuário em 2026-11-19** ("se não gostar altero mais pra frente").
+
+### Como testar
+
+```powershell
+uv run ruff check . ; uv run pytest
+uv run radar triar --max 25       # um lote só
+uv run radar triar                # todos os pendentes (até 500)
+$env:PYTHONIOENCODING="utf-8"; uv run radar revisar --quantidade 20
+```
+
+No GitHub: **Actions → coletar → Run workflow**. Os secrets necessários são `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY` e `PERFIL_MD` (conteúdo inteiro do `config/perfil.md`).
 
 ### Pendências observadas
 
