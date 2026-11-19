@@ -21,6 +21,8 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       RADAR_CONTATO: ${{ secrets.RADAR_CONTATO }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}   # opcional (aba Variables); vazio = padrão do código
     steps:
       - uses: actions/checkout@v7
 
@@ -34,4 +36,14 @@ jobs:
       - name: Coletar todas as fontes
         run: uv run --frozen --no-dev radar coletar --todos
 
-      # Bloco 2: aqui entra o passo `uv run radar triar`.
+      # O perfil é privado (repositório público): vem do secret PERFIL_MD e só existe durante a execução.
+      - name: Recriar perfil a partir do secret
+        if: ${{ !cancelled() }}
+        env:
+          PERFIL_MD: ${{ secrets.PERFIL_MD }}
+        run: printf '%s\n' "$PERFIL_MD" > config/perfil.md
+
+      # Roda mesmo se a coleta falhar por completo: pode haver pendentes de execuções anteriores.
+      - name: Triar pendentes com IA
+        if: ${{ !cancelled() }}
+        run: uv run --frozen --no-dev radar triar

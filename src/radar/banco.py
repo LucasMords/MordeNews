@@ -14,11 +14,12 @@ from typing import Any
 import httpx
 
 from radar import config
-from radar.modelos import Item, ItemPendente, Modulo
+from radar.modelos import Item, ItemPendente, Modulo, Resultado
 
 log = logging.getLogger(__name__)
 
 TIMEOUT_SEGUNDOS = 20.0
+MAX_TENTATIVAS_IA = 3
 
 _cliente_atual: httpx.Client | None = None
 
@@ -139,6 +140,10 @@ def apagar_item(id_unico: str) -> None:
 
 
 def pendentes(modulo: Modulo, limite: int) -> list[ItemPendente]:
+    """Itens aguardando triagem, dos mais recentes para os mais antigos.
+
+    Os mais novos vêm primeiro para que, se a cota da IA acabar, o resumo do dia já esteja triado.
+    """
     linhas = _requisitar(
         "GET",
         "/itens",
@@ -146,11 +151,66 @@ def pendentes(modulo: Modulo, limite: int) -> list[ItemPendente]:
             "select": "id,modulo,fonte,titulo,url,texto,tentativas_ia",
             "status": "eq.pendente",
             "modulo": f"eq.{modulo}",
-            "order": "coletado_em.asc",
+            "order": "coletado_em.desc,id.desc",
             "limit": str(limite),
         },
     )
     return [ItemPendente.model_validate(linha) for linha in linhas or []]
+
+
+def gravar_triagem(resultados: Sequence[Resultado]) -> None:
+    """Grava nota, resumo, tags, campos e prazo, e muda o status para processado/descartado."""
+    for r in resultados:
+        _requisitar(
+            "PATCH",
+            "/itens",
+            params={"id": f"eq.{r.id}", "status": "eq.pendente"},
+            json={
+                "nota": r.nota,
+                "resumo": r.resumo,
+                "tags": r.tags,
+                "campos": r.campos,
+                "prazo": r.prazo.isoformat() if r.prazo else None,
+                "status": r.status,
+            },
+            prefer="return=minimal",
+        )
+
+
+def registrar_falha_ia(itens: Sequence[ItemPendente], maximo: int = MAX_TENTATIVAS_IA) -> int:
+    """Incrementa tentativas_ia; no máximo de tentativas o item vai para 'erro'.
+
+    Devolve quantos itens foram para 'erro'.
+    """
+    para_erro = 0
+    for item in itens:
+        tentativas = item.tentativas_ia + 1
+        status = "erro" if tentativas >= maximo else "pendente"
+        para_erro += status == "erro"
+        _requisitar(
+            "PATCH",
+            "/itens",
+            params={"id": f"eq.{item.id}"},
+            json={"tentativas_ia": tentativas, "status": status},
+            prefer="return=minimal",
+        )
+    return para_erro
+
+
+def triados_recentes(modulo: Modulo, limite: int) -> list[dict[str, Any]]:
+    """Últimos itens triados (processados ou descartados), para revisão humana."""
+    linhas = _requisitar(
+        "GET",
+        "/itens",
+        params={
+            "select": "id,fonte,titulo,url,nota,resumo,tags,status,prazo",
+            "modulo": f"eq.{modulo}",
+            "status": "in.(processado,descartado)",
+            "order": "coletado_em.desc,id.desc",
+            "limit": str(limite),
+        },
+    )
+    return list(linhas or [])
 
 
 def marcar_enviados(ids: Sequence[int]) -> None:

@@ -70,8 +70,13 @@ class SupabaseFalso:
             achadas = [linha for linha in linhas if self._bate(linha, filtros)]
             ordem = params.get("order")
             if ordem:
-                coluna, _, direcao = ordem.partition(".")
-                achadas.sort(key=lambda linha: linha.get(coluna) or "", reverse=direcao == "desc")
+                # ordena da última chave para a primeira (sort estável = ordenação composta)
+                for criterio in reversed(ordem.split(",")):
+                    coluna, _, direcao = criterio.partition(".")
+                    achadas.sort(
+                        key=lambda linha, c=coluna: (linha.get(c) is not None, linha.get(c) or 0),
+                        reverse=direcao == "desc",
+                    )
             if "limit" in params:
                 achadas = achadas[: int(params["limit"])]
             return httpx.Response(
@@ -88,7 +93,14 @@ class SupabaseFalso:
                     if "ignore-duplicates" in prefer:
                         continue
                     return httpx.Response(409, json={"message": "duplicate key"})
-                linha = {"id": next(self._ids), "status": "pendente", "tentativas_ia": 0, **nova}
+                novo_id = next(self._ids)
+                padrao = {
+                    "id": novo_id,
+                    "status": "pendente",
+                    "tentativas_ia": 0,
+                    "coletado_em": f"2026-11-18T12:{novo_id // 60:02d}:{novo_id % 60:02d}+00:00",
+                }
+                linha = {**padrao, **nova}
                 linhas.append(linha)
                 inseridas.append(linha)
             if "return=representation" in prefer:

@@ -17,6 +17,7 @@ from radar.modelos import Fonte
 RAIZ = Path(__file__).resolve().parents[2]
 PASTA_CONFIG = RAIZ / "config"
 ARQUIVO_FONTES = PASTA_CONFIG / "fontes.yaml"
+ARQUIVO_PERFIL = PASTA_CONFIG / "perfil.md"
 NOME_ROBO = "RadarPessoal"
 
 
@@ -52,6 +53,9 @@ class Configuracao:
         chave = _exigir("SUPABASE_SERVICE_ROLE_KEY", self.supabase_service_role_key)
         return url.rstrip("/"), chave
 
+    def exigir_gemini(self) -> str:
+        return _exigir("GEMINI_API_KEY", self.gemini_api_key)
+
 
 def _exigir(nome: str, valor: str | None) -> str:
     if not valor:
@@ -82,7 +86,7 @@ def ler_ambiente() -> Configuracao:
         supabase_url=_texto("SUPABASE_URL"),
         supabase_service_role_key=_texto("SUPABASE_SERVICE_ROLE_KEY"),
         gemini_api_key=_texto("GEMINI_API_KEY"),
-        gemini_model=_texto("GEMINI_MODEL") or "gemini-2.5-flash-lite",
+        gemini_model=_texto("GEMINI_MODEL") or "gemini-3.5-flash-lite",
         telegram_bot_token=_texto("TELEGRAM_BOT_TOKEN"),
         telegram_chat_id=_texto("TELEGRAM_CHAT_ID"),
         nota_minima_resumo=_inteiro("NOTA_MINIMA_RESUMO", 6),
@@ -98,6 +102,17 @@ def carregar() -> Configuracao:
     """
     load_dotenv(RAIZ / ".env", override=False)
     return ler_ambiente()
+
+
+def carregar_perfil(caminho: Path = ARQUIVO_PERFIL) -> str:
+    """Texto do perfil de interesses usado pela triagem."""
+    dica = "Copie config/perfil.exemplo.md para config/perfil.md (no GitHub: secret PERFIL_MD)."
+    if not caminho.exists():
+        raise ErroConfiguracao(f"Perfil não encontrado: {caminho}. {dica}")
+    texto = caminho.read_text(encoding="utf-8").strip()
+    if not texto:
+        raise ErroConfiguracao(f"Perfil vazio: {caminho}. {dica}")
+    return texto
 
 
 def carregar_fontes_validas(caminho: Path = ARQUIVO_FONTES) -> list[Fonte]:

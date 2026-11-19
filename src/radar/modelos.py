@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any, Literal
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -107,3 +107,38 @@ class ItemPendente(BaseModel):
     url: str
     texto: str | None = None
     tentativas_ia: int = 0
+
+
+class Resultado(BaseModel):
+    """Triagem de um item, como devolvida pela IA e validada."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    id: int
+    nota: int = Field(ge=0, le=10)
+    resumo: str = Field(min_length=1, max_length=600)
+    tags: list[str] = Field(default_factory=list, max_length=8)
+    descartar: bool = False
+    campos: dict[str, Any] = Field(default_factory=dict)
+    prazo: date | None = None
+
+    @field_validator("tags")
+    @classmethod
+    def _normalizar_tags(cls, tags: list[str]) -> list[str]:
+        vistas: list[str] = []
+        for tag in tags:
+            limpa = tag.strip().lower()
+            if limpa and limpa not in vistas:
+                vistas.append(limpa)
+        return vistas
+
+    @field_validator("prazo", mode="before")
+    @classmethod
+    def _prazo_vazio(cls, valor: object) -> object:
+        if isinstance(valor, str) and valor.strip().lower() in ("", "null", "none"):
+            return None
+        return valor
+
+    @property
+    def status(self) -> StatusItem:
+        return "descartado" if self.descartar else "processado"

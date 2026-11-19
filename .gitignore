@@ -20,6 +20,9 @@ htmlcov/
 .env.*
 !.env.example
 
+# Perfil pessoal: fica só na máquina e no secret PERFIL_MD do GitHub (repositório público)
+config/perfil.md
+
 # Portal (bloco 6)
 web/node_modules/
 web/.next/

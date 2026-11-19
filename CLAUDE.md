@@ -152,7 +152,7 @@ Campos de `campos` por módulo:
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=      # só no backend/GitHub Secrets, NUNCA no portal
 GEMINI_API_KEY=
-GEMINI_MODEL=gemini-2.5-flash-lite   # confirmar no Google AI Studio qual modelo Flash tem plano gratuito
+GEMINI_MODEL=gemini-3.5-flash-lite   # escolhido pelo usuário em 2026-11-18; o 3.8 Flash ficava indisponível (503/504)
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
 NOTA_MINIMA_RESUMO=6

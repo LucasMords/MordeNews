@@ -3,7 +3,51 @@
 ## Estado atual
 
 - **Bloco 0 — Fundação:** concluído e validado no Supabase real (2026-11-18).
-- **Bloco 1 — Coletor RSS:** concluído (2026-11-18). Coleta local: 180 itens, e 0 duplicados na 2ª execução. No GitHub Actions (`workflow_dispatch`): 10/10 fontes ok e 7 itens novos sem duplicar, total de 187 no banco. O cron diário (06:13 BRT) está ativo. Aguardando o usuário validar para iniciar o bloco 2.
+- **Bloco 1 — Coletor RSS:** concluído (2026-11-18). Coleta local: 180 itens, e 0 duplicados na 2ª execução. No GitHub Actions (`workflow_dispatch`): 10/10 fontes ok e 7 itens novos sem duplicar, total de 187 no banco. O cron diário (06:13 BRT) está ativo.
+- **Bloco 2 — Triagem por IA:** 138 testes passando e triagem real feita em 2026-11-19 (186 itens, 0 erros de cota). **Falta** o usuário aprovar a amostra de 20 notas, publicar no GitHub e rodar o `coletar` via `workflow_dispatch`.
+
+---
+
+## Bloco 2 — Triagem por IA (2026-11-18, em andamento)
+
+### O que foi feito
+
+- `config/perfil.md`: perfil escrito pelo usuário, copiado sem alterações. É privado e fica fora do git (veja as decisões abaixo).
+- `ia/prompts/noticias.md`: instruções do filtro de notícias. Define a escala da nota (9–10 muito relevante; 7–8 relevante; 5–6 interessante; 3–4 baixa; 0–2 descartar), quando descartar (publicidade, guia de presentes, caça-clique, produto sem impacto), o vocabulário fixo de 35 tags e as regras de não inventar. O resumo tem 2 frases: o fato e por que importa para o usuário.
+- `ia/cliente.py`: `classificar_lote(itens, modulo)`, o único lugar que importa o SDK do Gemini. Manda só `id`, `titulo` e os primeiros 1.500 caracteres do `texto`, mais o perfil e a data de hoje. Pede saída JSON com schema (tags restritas ao vocabulário) e valida **item a item**: um item inválido não derruba o lote. Erro 429, 5xx ou de rede tem backoff de 5s, 15s e 45s. Se o 429 persistir, vira `CotaEsgotada`. Erro 4xx (ex.: chave inválida) falha na hora.
+- `ia/triagem.py`: `triar(modulo)` busca até 500 pendentes (os **mais novos primeiro**), divide em lotes de 25 e pausa 4s entre lotes. Cada item tem **uma tentativa por execução**. O item sem resposta válida ganha `tentativas_ia + 1` e, na 3ª, vai para `erro`. Cota esgotada encerra sem falhar e os pendentes ficam para a próxima. Falha da API não gasta tentativa do item. Cada execução registra `triagem-noticias` em `execucoes`.
+- `banco.py`: `gravar_triagem`, `registrar_falha_ia`, `triados_recentes`. O `pendentes` agora ordena do mais novo para o mais antigo.
+- CLI: `radar triar [--modulo] [--max] [--lote]` e `radar revisar [--quantidade 20]`, que lista os últimos triados por nota para conferência.
+- `coletar.yml`: novo passo `radar triar` depois da coleta. Precisa do secret `GEMINI_API_KEY`. `GEMINI_MODEL` é opcional, na aba **Variables**.
+
+### Dependência nova
+
+| Dependência | Motivo |
+|---|---|
+| `google-genai` | Já está na stack (SDK oficial do Gemini). Usado só em `ia/cliente.py`. |
+
+### Decisões do usuário (2026-11-18)
+
+- **Modelo: `gemini-3.5-flash-lite`**, padrão no código, no `.env.example` e no `CLAUDE.md`. O usuário pediu primeiro o `gemini-3.8-flash`, estável e gratuito segundo a doc do AI Studio. No teste real, porém, ele não respondeu nem a um "ok" (504 depois de ~90s, com ou sem *thinking* baixo), e os outros Flash (3.5, 3.6, 3.7) davam 503 "high demand" ou 504. Só o Flash-Lite respondia (~6s). Entre "3.8 com reserva Lite", "só Lite" e "só 3.8 esperando", o usuário escolheu **só o Lite**. A doc também diz que o acesso aos modelos 2.5 está limitado a quem já usava. Observação: no plano gratuito o Google pode usar o conteúdo enviado (incluindo o perfil) para melhorar os produtos dele.
+- **Perfil privado:** `config/perfil.md` está no `.gitignore`. O repositório tem só o modelo `config/perfil.exemplo.md`. No GitHub Actions, o passo "Recriar perfil a partir do secret" escreve o arquivo a partir do secret `PERFIL_MD`. **Ao editar o perfil, atualize também o secret.**
+
+### Resultado da triagem real (2026-11-19)
+
+- 186 itens em 8 chamadas (lotes de 25), cerca de 20s por lote. 185 respostas válidas de primeira. 1 veio com id repetido e ficou pendente para a próxima execução, como previsto.
+- **Problema encontrado e corrigido:** itens sem texto (Hacker News e Hugging Face) eram descartados com nota 0, mesmo com uma instrução no prompt para não fazer isso. Na correção, o próprio código (`texto_para_ia`) troca o texto vazio por um aviso explícito ("a fonte não fornece texto; avalie pelo título"). Para o Hacker News, os metadados viram "Pontos no Hacker News: N; comentários: M". Os 24 itens dessas duas fontes voltaram para `pendente` e foram re-triados: nenhum descarte por falta de texto.
+- Distribuição das notas: 0:4 · 1:9 · 2:6 · 3:11 · 4:19 · 5:34 · 6:41 · 7:24 · 8:21 · 9:10 · 10:8. Com `NOTA_MINIMA_RESUMO=6`, cerca de 100 itens entrariam no resumo desta primeira rodada, que acumulou 72h. Num dia normal devem ser bem menos.
+- Amostra de 20 (2 por fonte: maior e menor nota) **aprovada pelo usuário em 2026-11-19** ("se não gostar altero mais pra frente").
+
+### Pendências observadas
+
+- **Mesma notícia em várias fontes** (ex.: Java4Shell aparece 4 vezes, no HN, no TabNews e no The Hacker News). A deduplicação é por URL. Agrupar por assunto pode entrar no resumo (bloco 3) ou no "editor-chefe" (bloco 8).
+- O `revisar` e os scripts de diagnóstico mostram acentos quebrados no PowerShell do Windows se a saída não estiver em UTF-8. Use `$env:PYTHONIOENCODING="utf-8"`. No GitHub Actions (Linux) isso não acontece.
+
+### Decisões que tomei e que você pode mudar
+
+- A escala de notas e o vocabulário de tags saíram do seu perfil. Ficam em `ia/prompts/noticias.md`.
+- Só `id`, título e texto vão para a IA, como pede o `CLAUDE.md`. O nome da fonte **não** vai, embora o perfil dê 20% de peso à confiabilidade da fonte. Se quiser, incluo.
+- O formato do resumo segue o `CLAUDE.md` (até 2 frases). Os campos "O que fazer" e "Confiabilidade" do formato do seu perfil não existem na tabela. Dá para acrescentar depois, numa migração nova.
 
 ---
 

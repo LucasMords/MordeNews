@@ -12,6 +12,8 @@ from radar import banco, config
 from radar.coletores.base import executar
 from radar.coletores.http import ClienteHttp
 from radar.coletores.registro import filtrar_fontes, montar_coletores
+from radar.ia import cliente as ia_cliente
+from radar.ia import triagem
 from radar.modelos import Item
 
 log = logging.getLogger("radar")
@@ -29,8 +31,9 @@ def _configurar_logs() -> None:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-    # O httpx loga cada requisição em INFO; deixamos só avisos para não poluir.
-    logging.getLogger("httpx").setLevel(logging.WARNING)
+    # httpx e o SDK do Gemini logam cada requisição em INFO; deixamos só avisos para não poluir.
+    for ruidoso in ("httpx", "httpx2", "google_genai"):
+        logging.getLogger(ruidoso).setLevel(logging.WARNING)
 
 
 def _verificar(condicao: bool, mensagem: str) -> None:
@@ -108,6 +111,46 @@ def comando_coletar(args: argparse.Namespace) -> int:
     return 1 if len(falhas) == len(resultados) else 0
 
 
+def comando_triar(args: argparse.Namespace) -> int:
+    """Tria os pendentes. Cota esgotada não é falha; erro da IA ou do banco é."""
+    cfg = config.carregar()
+    cfg.exigir_supabase()
+    cfg.exigir_gemini()
+    config.carregar_perfil()  # falha logo se o perfil não existir
+    modulos = [args.modulo] if args.modulo else ia_cliente.modulos_com_prompt()
+    for modulo in modulos:
+        resumo = triagem.triar(modulo, tamanho_lote=args.lote, maximo=args.max)
+        log.info(
+            "triagem %s concluída: %d processados, %d descartados, %d sem resposta "
+            "(%d foram para 'erro')%s",
+            modulo,
+            resumo.processados,
+            resumo.descartados,
+            resumo.sem_resposta,
+            resumo.para_erro,
+            " — interrompida por cota" if resumo.interrompido_por_cota else "",
+        )
+        if resumo.interrompido_por_cota:
+            break
+    return 0
+
+
+def comando_revisar(args: argparse.Namespace) -> int:
+    """Mostra os últimos itens triados para conferir se as notas fazem sentido."""
+    itens = banco.triados_recentes(args.modulo, args.quantidade)
+    if not itens:
+        log.info("nenhum item triado em %s ainda", args.modulo)
+        return 0
+    itens.sort(key=lambda i: i["nota"] or 0, reverse=True)
+    for item in itens:
+        marca = " [descartado]" if item["status"] == "descartado" else ""
+        print(f"\n[{item['nota']:>2}] {item['titulo']}{marca}")
+        print(f"     {item['fonte']} · {', '.join(item['tags'] or [])} · id {item['id']}")
+        print(f"     {item['resumo']}")
+        print(f"     {item['url']}")
+    return 0
+
+
 def _montar_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="radar", description="Radar pessoal de informação.")
     sub = parser.add_subparsers(dest="comando", required=True)
@@ -120,6 +163,26 @@ def _montar_parser() -> argparse.ArgumentParser:
     )
     escolha.add_argument("--modulo", choices=["noticias", "estagios", "concursos"])
     coletar.set_defaults(funcao=comando_coletar)
+
+    triar = sub.add_parser("triar", help="classifica os itens pendentes com a IA")
+    triar.add_argument("--modulo", choices=["noticias", "estagios", "concursos"])
+    triar.add_argument(
+        "--max",
+        type=int,
+        default=triagem.MAXIMO_POR_EXECUCAO,
+        help="máximo de itens nesta execução",
+    )
+    triar.add_argument(
+        "--lote", type=int, default=triagem.TAMANHO_LOTE, help="itens por chamada à IA (20 a 30)"
+    )
+    triar.set_defaults(funcao=comando_triar)
+
+    revisar = sub.add_parser("revisar", help="lista os últimos itens triados, por nota")
+    revisar.add_argument(
+        "--modulo", choices=["noticias", "estagios", "concursos"], default="noticias"
+    )
+    revisar.add_argument("--quantidade", type=int, default=20)
+    revisar.set_defaults(funcao=comando_revisar)
 
     teste = sub.add_parser("teste-banco", help="grava e lê um item de teste no Supabase")
     teste.add_argument("--manter", action="store_true", help="não apaga o item de teste ao final")
@@ -137,6 +200,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         log.error("configuração: %s", erro)
     except banco.ErroBanco as erro:
         log.error("banco: %s", erro)
+    except ia_cliente.ErroIA as erro:
+        log.error("IA: %s", erro)
     except FalhaVerificacao as erro:
         log.error("verificação falhou: %s", erro)
     return 1

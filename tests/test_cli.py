@@ -1,11 +1,14 @@
+from collections.abc import Sequence
+from dataclasses import replace
 from typing import Any
 
 import httpx
 import pytest
 
-from radar import cli, config
+from radar import banco, cli, config
 from radar.coletores.http import ClienteHttp
-from radar.modelos import Fonte
+from radar.ia import cliente as ia_cliente
+from radar.modelos import Fonte, Item, ItemPendente, Modulo, Resultado
 from tests.conftest import SiteFalso, SupabaseFalso, cliente_http, fonte, ler_fixture
 
 # ------------------------------------------------------------ teste-banco
@@ -109,3 +112,84 @@ def test_coletar_fonte_inexistente(ambiente_coleta: tuple[SiteFalso, SupabaseFal
 def test_coletar_exige_escolha_de_fontes() -> None:
     with pytest.raises(SystemExit):
         cli.main(["coletar"])
+
+
+# ------------------------------------------------------------ triar / revisar
+
+
+@pytest.fixture
+def ambiente_triagem(monkeypatch: pytest.MonkeyPatch, supabase: SupabaseFalso) -> SupabaseFalso:
+    cfg = config.Configuracao(
+        supabase_url="https://falso.supabase.co",
+        supabase_service_role_key="sb_secret_teste",
+        gemini_api_key="chave-falsa",
+        gemini_model="x",
+        telegram_bot_token=None,
+        telegram_chat_id=None,
+        nota_minima_resumo=6,
+    )
+    monkeypatch.setattr(config, "carregar", lambda: cfg)
+    monkeypatch.setattr(config, "carregar_perfil", lambda: "perfil")
+    banco.salvar_itens(
+        [
+            Item(modulo="noticias", fonte="t", titulo="Java 27 lançado", url="https://e.com/1"),
+            Item(modulo="noticias", fonte="t", titulo="Cupom de desconto", url="https://e.com/2"),
+        ]
+    )
+    return supabase
+
+
+def _classificador(itens: Sequence[ItemPendente], _m: Modulo) -> list[Resultado]:
+    return [
+        Resultado(
+            id=i.id,
+            nota=9 if "Java" in i.titulo else 1,
+            resumo=f"Resumo de {i.titulo}.",
+            tags=["java"] if "Java" in i.titulo else ["outros"],
+            descartar="Cupom" in i.titulo,
+        )
+        for i in itens
+    ]
+
+
+def test_triar_e_revisar(
+    ambiente_triagem: SupabaseFalso,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(ia_cliente, "classificar_lote", _classificador)
+    assert cli.main(["triar"]) == 0
+    status = {linha["titulo"]: linha["status"] for linha in ambiente_triagem.tabelas["itens"]}
+    assert status == {"Java 27 lançado": "processado", "Cupom de desconto": "descartado"}
+
+    assert cli.main(["revisar", "--quantidade", "5"]) == 0
+    saida = capsys.readouterr().out
+    assert saida.index("[ 9] Java 27 lançado") < saida.index("[ 1] Cupom de desconto [descartado]")
+
+
+def test_triar_cota_esgotada_retorna_0(
+    ambiente_triagem: SupabaseFalso, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def sem_cota(_i: Sequence[ItemPendente], _m: Modulo) -> list[Resultado]:
+        raise ia_cliente.CotaEsgotada("429")
+
+    monkeypatch.setattr(ia_cliente, "classificar_lote", sem_cota)
+    assert cli.main(["triar"]) == 0
+
+
+def test_triar_erro_da_ia_retorna_1(
+    ambiente_triagem: SupabaseFalso, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def quebrado(_i: Sequence[ItemPendente], _m: Modulo) -> list[Resultado]:
+        raise ia_cliente.ErroIA("403 chave inválida")
+
+    monkeypatch.setattr(ia_cliente, "classificar_lote", quebrado)
+    assert cli.main(["triar"]) == 1
+
+
+def test_triar_sem_chave_do_gemini_retorna_1(
+    ambiente_triagem: SupabaseFalso, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = config.carregar()
+    monkeypatch.setattr(config, "carregar", lambda: replace(cfg, gemini_api_key=None))
+    assert cli.main(["triar"]) == 1

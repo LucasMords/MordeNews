@@ -23,7 +23,7 @@ def test_valores_padrao(monkeypatch: pytest.MonkeyPatch) -> None:
     _limpar_ambiente(monkeypatch)
     cfg = config.ler_ambiente()
     assert cfg.nota_minima_resumo == 6
-    assert cfg.gemini_model == "gemini-2.5-flash-lite"
+    assert cfg.gemini_model == "gemini-3.5-flash-lite"
     assert cfg.supabase_url is None
 
 
@@ -107,6 +107,32 @@ def _yaml(tmp_path: Path, conteudo: str) -> Path:
 def test_fontes_invalidas(tmp_path: Path, conteudo: str, trecho_do_erro: str) -> None:
     with pytest.raises(config.ErroConfiguracao, match=trecho_do_erro):
         config.carregar_fontes_validas(_yaml(tmp_path, conteudo))
+
+
+def test_carregar_perfil(tmp_path: Path) -> None:
+    arquivo = tmp_path / "perfil.md"
+    arquivo.write_text("  # Perfil\nGosto de Java.\n\n", encoding="utf-8")
+    assert config.carregar_perfil(arquivo) == "# Perfil\nGosto de Java."
+
+
+def test_perfil_ausente_ou_vazio(tmp_path: Path) -> None:
+    with pytest.raises(config.ErroConfiguracao, match="não encontrado"):
+        config.carregar_perfil(tmp_path / "nao-existe.md")
+    vazio = tmp_path / "vazio.md"
+    vazio.write_text("   \n", encoding="utf-8")
+    with pytest.raises(config.ErroConfiguracao, match="vazio"):
+        config.carregar_perfil(vazio)
+
+
+def test_modelo_de_perfil_existe_no_repositorio() -> None:
+    # O perfil real (config/perfil.md) é privado e não está no git; só o modelo está.
+    assert len(config.carregar_perfil(config.PASTA_CONFIG / "perfil.exemplo.md")) > 100
+
+
+def test_exigir_gemini(monkeypatch: pytest.MonkeyPatch) -> None:
+    _limpar_ambiente(monkeypatch)
+    with pytest.raises(config.ErroConfiguracao, match="GEMINI_API_KEY"):
+        config.ler_ambiente().exigir_gemini()
 
 
 def test_user_agent(monkeypatch: pytest.MonkeyPatch) -> None:
