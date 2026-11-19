@@ -5,12 +5,12 @@
 - **Bloco 0 — Fundação:** concluído e validado no Supabase real (2026-11-18).
 - **Bloco 1 — Coletor RSS:** concluído (2026-11-18). Coleta local: 180 itens, e 0 duplicados na 2ª execução. No GitHub Actions (`workflow_dispatch`): 10/10 fontes ok e 7 itens novos sem duplicar, total de 187 no banco. O cron diário (06:13 BRT) está ativo.
 - **Bloco 2 — Triagem por IA:** concluído (2026-11-19). Amostra de 20 notas aprovada pelo usuário. No GitHub Actions (`workflow_dispatch`, 12:48 UTC): coleta de 106 itens novos e triagem dos 106, sem erro. No banco: 265 processados, 28 descartados, 0 pendentes. 
-- **Bloco 3 — Resumo diário por e-mail:** código pronto, 171 testes passando e prévia gerada com dados reais. **Falta** o usuário criar o Gmail do projeto e a senha de app, o primeiro envio real e rodar o `resumo-diario` via `workflow_dispatch`.
+- **Bloco 3 — Resumo diário por e-mail:** concluído (2026-11-19). **Fim do MVP.** 1º envio local: 30 assuntos (45 itens). O usuário confirmou que chegou na caixa de entrada, fora do spam. Depois, via `workflow_dispatch` no GitHub: 31 itens novos, sem repetir nenhum do 1º envio (76 itens distintos marcados). Aguardando o usuário validar para iniciar o bloco 4.
 - ⚠️ **O cron das 06:13 BRT de 2026-11-19 não disparou** (0 execuções `schedule` no GitHub, workflow `active`). O GitHub pode atrasar ou descartar crons em horários de carga, principalmente em workflows recém-criados. Conferir em 2026-11-20. Se falhar de novo, adicionar um segundo horário de reserva no `coletar.yml`. Rodar de novo não causa problema: a coleta não duplica e a triagem só pega pendentes.
 
 ---
 
-## Bloco 3 — Resumo diário por e-mail (2026-11-19, em andamento)
+## Bloco 3 — Resumo diário por e-mail (2026-11-19)
 
 ### Decisão do usuário: e-mail no lugar do Telegram
 
@@ -43,6 +43,20 @@ uv run ruff check . ; uv run pytest
 $env:PYTHONIOENCODING="utf-8"; uv run radar resumo --simular --salvar previa.html   # abre previa.html no navegador
 uv run radar resumo                                                                   # envia de verdade
 ```
+
+No GitHub: **Actions → resumo-diario → Run workflow** (secrets `EMAIL_REMETENTE`, `EMAIL_SENHA_APP` e `EMAIL_DESTINO`).
+
+### Validação (2026-11-19)
+
+- Envio local: "MordeNews 19/11: 30 itens, 21 em destaque". O usuário confirmou que chegou na caixa de entrada, fora do spam. 45 itens marcados (30 assuntos com os repetidos agrupados).
+- `resumo-diario` via `workflow_dispatch` (15:21 UTC): 31 itens, todos diferentes dos 45 anteriores.
+
+### Pendências
+
+- [ ] Conferir em 2026-11-20 se os crons **agendados** dispararam: `coletar` às 06:13 BRT e `resumo-diario` às 07:07 BRT. O de 2026-11-19 não disparou.
+- [ ] `RADAR_CONTATO` (User-Agent): pode usar o Gmail do projeto.
+- [ ] Hugging Face sem texto: manter ou trocar (a triagem pelo título está funcionando).
+- Monitoramento (bloco 9): os alertas de falha agora vão por e-mail. A função de envio já existe e pode ser reaproveitada.
 
 ---
 
