@@ -22,9 +22,8 @@ O **MVP está pronto e rodando sozinho** (blocos 0 a 3). Todo dia o GitHub Actio
 
 | Horário (Brasília) | Workflow | O que faz |
 |---|---|---|
-| 06:13 | `coletar.yml` | `radar coletar --todos`, depois recria o perfil a partir do secret e roda `radar triar` |
-| 08:02 | `resumo-diario.yml` | `radar resumo`: até 30 assuntos com nota ≥ 6 (notícias repetidas agrupadas) e até 15 vagas com qualquer nota |
-| 15:04 | `resumo-diario.yml` | `radar resumo --reserva`: só envia se o resumo das 08h falhou ou não rodou |
+| 08:02 | `resumo-diario.yml` | coleta todas as fontes, tria com a IA e roda `radar resumo`: até 30 assuntos com nota ≥ 6 (notícias repetidas agrupadas) e até 15 vagas com qualquer nota |
+| 15:04 | `resumo-diario.yml` | coleta, tria e roda `radar resumo --reserva`: só envia se o resumo das 08h falhou ou não rodou |
 | a cada push | `testes.yml` | `ruff check`, `ruff format --check`, `pytest` |
 
 **Secrets já criados no GitHub:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `PERFIL_MD`, `EMAIL_REMETENTE`, `EMAIL_SENHA_APP`, `EMAIL_DESTINO`.
@@ -143,7 +142,7 @@ Abra o Claude Code na pasta do projeto e peça algo como:
 
 ## 6. Pendências gerais
 
-- [ ] **Conferir se os crons agendados disparam.** Em 2026-11-19 o das 06:13 não disparou (o GitHub pode atrasar ou pular crons em workflows novos). Se pular de novo, adicionar um horário de reserva no `coletar.yml` e no `resumo-diario.yml`. Rodar duas vezes é seguro: a coleta não duplica, a triagem só pega pendentes e o resumo só pega o que não foi enviado.
+- [x] **Crons atrasados ou pulados (2026-11-19 e 11-20):** resolvido com coleta + triagem + resumo no mesmo job às 08:02 e reserva às 15:04. O `coletar.yml` ficou só manual.
 - [ ] `RADAR_CONTATO`: pode ser o Gmail do projeto (no `.env` e como secret).
 - [ ] Hugging Face Blog sem texto no feed: está funcionando só pelo título; manter ou trocar.
 - [ ] A mesma notícia em PT e EN com palavras diferentes às vezes não é agrupada no e-mail. Limitação conhecida, candidata ao "editor-chefe" (Bloco 8).

@@ -33,7 +33,7 @@
 - E-mail: a linha "Empresa · Local · Bolsa" aparece em cada vaga.
 - Agrupamento de vagas: a **mesma vaga repostada em outro repositório** vira uma entrada só, com "Também em". A regra exige fontes diferentes, a mesma empresa e títulos parecidos **sem contar** empresa, cidade e modalidade. Na mesma fonte nunca junta (ex.: SESI Licenciatura × Bacharelado são duas vagas).
 - `banco.para_resumo` ganhou o filtro `modulos`.
-- **Novo horário do resumo (pedido do usuário, 2026-11-20):** 08:02 BRT, com **reserva às 15:04 BRT**. A reserva roda `radar resumo --reserva`, que confere em `execucoes` se já houve um `resumo-diario` com `ok = true` desde a meia-noite de Brasília, com ou sem e-mail. Se houve, não faz nada. Se a execução das 08h falhou ou nem rodou (o GitHub chegou a pular e atrasar crons), envia. Função nova: `banco.houve_execucao_ok`.
+- **Novo horário do resumo (pedido do usuário, 2026-11-20):** 08:02 BRT, com **reserva às 15:04 BRT**. O `resumo-diario` agora **coleta e tria no mesmo job, logo antes de enviar**; o `coletar.yml` ficou só manual. A reserva roda `radar resumo --reserva`, que confere em `execucoes` se já houve um `resumo-diario` com `ok = true` desde a meia-noite de Brasília, com ou sem e-mail. Se houve, não faz nada. Se a execução das 08h falhou ou nem rodou (o GitHub chegou a pular e atrasar crons), envia. Função nova: `banco.houve_execucao_ok`.
 - Sem dependências novas.
 
 ### Validação com dados reais (2026-11-20)

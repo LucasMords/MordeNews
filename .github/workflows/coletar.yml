@@ -1,8 +1,8 @@
 name: coletar
 
+# Só manual desde 2026-11-20: a coleta agendada roda dentro do resumo-diario, logo antes
+# do envio (pedido do usuário). Use este workflow para coletar e triar fora de hora.
 on:
-  schedule:
-    - cron: "13 9 * * *"   # 06:13 em Brasília (cron do GitHub é em UTC)
   workflow_dispatch:
 
 permissions:
