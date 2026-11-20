@@ -5,7 +5,7 @@
 
 ## 1. Resumo em uma frase
 
-O **MVP está pronto e rodando sozinho** (blocos 0 a 3). Todo dia o GitHub Actions coleta notícias de 10 feeds, a IA dá nota e resumo a cada uma e um e-mail chega com as mais relevantes. O **Bloco 4 (vagas de estágio)** está na fase de **escolha de fontes**, esperando decisões do usuário (seção 5).
+O **MVP está pronto e rodando sozinho**, agora também com **vagas de estágio** (blocos 0 a 4). Todo dia, às 08:02 (reserva às 15:04), o GitHub Actions coleta notícias de 10 feeds e vagas de 12 fontes, a IA dá nota e resumo a cada item e um e-mail chega com as notícias mais relevantes e as vagas. O próximo é o **Bloco 5 (editais de concurso)**.
 
 ## 2. O que já funciona
 
@@ -15,7 +15,7 @@ O **MVP está pronto e rodando sozinho** (blocos 0 a 3). Todo dia o GitHub Actio
 | 1 — Coletor RSS (10 feeds de notícias) | ✅ concluído | 2026-11-18 |
 | 2 — Triagem por IA (Gemini `gemini-3.5-flash-lite`) | ✅ concluído, amostra de 20 notas aprovada | 2026-11-19 |
 | 3 — Resumo diário **por e-mail** (substituiu o Telegram) | ✅ concluído, e-mail recebido na caixa de entrada | 2026-11-19 |
-| 4 — Vagas de estágio | 🟡 pesquisa de fontes feita, aguardando decisão | — |
+| 4 — Vagas de estágio (GitHub, Programathor, IEL TO) | ✅ concluído, e-mail com vagas confirmado | 2026-11-20 |
 | 5 — Editais de concurso | ⏭️ próximo | — |
 | 6 a 9 | ⏳ não iniciados | — |
 
@@ -74,7 +74,7 @@ No macOS/Linux: instale o uv com `curl -LsSf https://astral.sh/uv/install.sh | s
 
 Abra o Claude Code na pasta do projeto e peça algo como:
 
-> Leia o `CLAUDE.md`, o `docs/retomar.md` e o `docs/progresso.md` e continue o Bloco 4 a partir das decisões pendentes.
+> Leia o `CLAUDE.md`, o `docs/retomar.md` e o `docs/progresso.md` e comece o Bloco 5.
 
 ## 4. Comandos do dia a dia
 

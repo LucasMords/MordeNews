@@ -2,7 +2,7 @@
 
 ## Estado atual
 
-> **Trocando de máquina?** Veja [`retomar.md`](retomar.md): como montar o ambiente, quais arquivos levar à mão e onde o Bloco 4 parou.
+> **Trocando de máquina?** Veja [`retomar.md`](retomar.md): como montar o ambiente, quais arquivos levar à mão e onde o projeto parou.
 
 - **Bloco 0 — Fundação:** concluído e validado no Supabase real (2026-11-18).
 - **Bloco 1 — Coletor RSS:** concluído (2026-11-18). Coleta local: 180 itens, e 0 duplicados na 2ª execução. No GitHub Actions (`workflow_dispatch`): 10/10 fontes ok e 7 itens novos sem duplicar, total de 187 no banco. O cron diário (06:13 BRT) está ativo.
