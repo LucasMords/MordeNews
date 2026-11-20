@@ -16,7 +16,8 @@ O **MVP está pronto e rodando sozinho** (blocos 0 a 3). Todo dia o GitHub Actio
 | 2 — Triagem por IA (Gemini `gemini-3.5-flash-lite`) | ✅ concluído, amostra de 20 notas aprovada | 2026-11-19 |
 | 3 — Resumo diário **por e-mail** (substituiu o Telegram) | ✅ concluído, e-mail recebido na caixa de entrada | 2026-11-19 |
 | 4 — Vagas de estágio | 🟡 pesquisa de fontes feita, aguardando decisão | — |
-| 5 a 9 | ⏳ não iniciados | — |
+| 5 — Editais de concurso | ⏭️ próximo | — |
+| 6 a 9 | ⏳ não iniciados | — |
 
 ### Rotina automática (GitHub Actions, repositório público `LucasMords/MordeNews`)
 

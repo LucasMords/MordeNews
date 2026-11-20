@@ -8,8 +8,8 @@
 - **Bloco 1 — Coletor RSS:** concluído (2026-11-18). Coleta local: 180 itens, e 0 duplicados na 2ª execução. No GitHub Actions (`workflow_dispatch`): 10/10 fontes ok e 7 itens novos sem duplicar, total de 187 no banco. O cron diário (06:13 BRT) está ativo.
 - **Bloco 2 — Triagem por IA:** concluído (2026-11-19). Amostra de 20 notas aprovada pelo usuário. No GitHub Actions (`workflow_dispatch`, 12:48 UTC): coleta de 106 itens novos e triagem dos 106, sem erro. No banco: 265 processados, 28 descartados, 0 pendentes. 
 - **Bloco 3 — Resumo diário por e-mail:** concluído (2026-11-19). **Fim do MVP.** 1º envio local: 30 assuntos (45 itens). O usuário confirmou que chegou na caixa de entrada, fora do spam. Depois, via `workflow_dispatch` no GitHub: 31 itens novos, sem repetir nenhum do 1º envio (76 itens distintos marcados). 
-- **Bloco 4 — Vagas de estágio:** concluído localmente (2026-11-20). 12 fontes de vagas, 22 vagas triadas com dados reais e a seção "Estágios" na prévia do e-mail, com empresa, local e bolsa. **Falta:** rodar via `workflow_dispatch` no GitHub e ver o primeiro estágio de TI real chegar (o lote de hoje só tinha pleno, sênior e vagas fora de TI).
-- ⚠️ **O cron das 06:13 BRT de 2026-11-19 não disparou** (0 execuções `schedule` no GitHub, workflow `active`). O GitHub pode atrasar ou descartar crons em horários de carga, principalmente em workflows recém-criados. Em 2026-11-20 a coleta local das 09:46 BRT ainda trouxe 77 itens novos, sinal de que o cron provavelmente falhou de novo (conferir com `gh run list`). Se confirmado, adicionar um segundo horário de reserva. Rodar de novo não causa problema: a coleta não duplica e a triagem só pega pendentes.
+- **Bloco 4 — Vagas de estágio:** concluído (2026-11-20). 12 fontes de vagas. Via `workflow_dispatch` no GitHub: coleta de 22/22 fontes, triagem e e-mail "MordeNews 20/11: 41 itens" (30 assuntos de notícias + 11 entradas de vagas). O usuário confirmou que o e-mail chegou com a seção Estágios (empresa, local e bolsa). Coleta, triagem e resumo agora rodam no mesmo job, às 08:02 BRT, com reserva às 15:04.
+- Crons: em 2026-11-19 o `coletar` rodou com ~9h de atraso, e o `resumo-diario` nunca disparou pelo cron. Resolvido juntando coleta, triagem e resumo em um job às 08:02, com reserva às 15:04. **Conferir em 2026-11-21** se o das 08:02 disparou.
 
 ---
 
@@ -55,7 +55,7 @@ uv run radar resumo --simular --salvar previa.html
 
 ### Pendências
 
-- [ ] Rodar `coletar` e `resumo-diario` via `workflow_dispatch` no GitHub.
+- [x] `coletar` e `resumo-diario` rodados via `workflow_dispatch` em 2026-11-20; e-mail confirmado pelo usuário.
 - [ ] Ver o primeiro estágio/júnior de TI real e conferir a nota (≥ 6) e os campos no e-mail.
 - [ ] IEL Goiás: ficou para depois (decisão do usuário).
 - [ ] Opcional: variáveis `NOTA_MINIMA_ESTAGIOS` e `ESTAGIOS_MAXIMO` na aba Variables (vazio = 0 e 15).
