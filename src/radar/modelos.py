@@ -7,7 +7,14 @@ from datetime import UTC, date, datetime
 from typing import Any, Literal
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 Modulo = Literal["noticias", "estagios", "concursos"]
 StatusItem = Literal["pendente", "processado", "descartado", "erro"]
@@ -81,7 +88,7 @@ class Item(BaseModel):
         return self.model_dump(mode="json")
 
 
-TipoFonte = Literal["rss"]  # html, pdf e api entram nos blocos 4 e 5
+TipoFonte = Literal["rss", "github", "iel"]  # pdf entra no bloco 5
 
 
 class Fonte(BaseModel):
@@ -122,11 +129,45 @@ class ItemResumo(BaseModel):
     resumo: str | None = None
     tags: list[str] = Field(default_factory=list)
     prazo: date | None = None
+    campos: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator("tags", mode="before")
+    @field_validator("tags", "campos", mode="before")
     @classmethod
-    def _tags_nulas(cls, valor: object) -> object:
+    def _nulos(cls, valor: object, info: ValidationInfo) -> object:
+        if valor:
+            return valor
+        return [] if info.field_name == "tags" else {}
+
+
+class CamposEstagio(BaseModel):
+    """Campos extraídos de uma vaga. Tudo opcional: o que não está no texto fica nulo."""
+
+    model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
+
+    empresa: str | None = None
+    area: str | None = None
+    cidade: str | None = None
+    remoto: bool | None = None
+    bolsa: str | None = None
+    requisitos: list[str] = Field(default_factory=list, max_length=10)
+    link_inscricao: str | None = None
+
+    @field_validator("empresa", "area", "cidade", "bolsa", "link_inscricao", mode="before")
+    @classmethod
+    def _vazio_vira_nulo(cls, valor: object) -> object:
+        if isinstance(valor, str) and valor.strip().lower() in ("", "null", "none", "n/a"):
+            return None
+        return valor
+
+    @field_validator("requisitos", mode="before")
+    @classmethod
+    def _requisitos_nulos(cls, valor: object) -> object:
         return valor or []
+
+    @field_validator("link_inscricao")
+    @classmethod
+    def _link_http(cls, valor: str | None) -> str | None:
+        return valor if valor and valor.startswith(("http://", "https://")) else None
 
 
 class Resultado(BaseModel):

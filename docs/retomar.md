@@ -122,11 +122,16 @@ Abra o Claude Code na pasta do projeto e peça algo como:
 | CIEE | Maior agente de estágio, com vagas em **GO e TO** | A página de vagas usa uma API interna. A tentativa de examinar o JavaScript dela foi **bloqueada pelo sistema de permissões do Claude Code** como acesso não autorizado; a análise parou ali |
 | IEL Tocantins / IEL Goiás | Mural diário de estágios, inclusive informática | Endereço oficial do mural não encontrado (os domínios testados não existem) |
 
-### Decisões que o usuário precisa tomar para continuar
+### Decisões do usuário (2026-11-19, segunda sessão)
 
-1. Começar com **Programathor + repositórios do GitHub**? (recomendado)
-2. **Remotar e CIEE:** (a) ler os **termos de uso** e só incluir se não proibirem acesso automatizado (recomendado); (b) deixar de fora por enquanto; ou (c) incluir mesmo assim, ciente do risco, liberando a permissão no Claude Code.
-3. **IEL TO/GO:** informar o endereço do mural, se souber.
+1. **Programathor (RSS) + repositórios de vagas no GitHub (API):** aprovados.
+2. **Remotar e CIEE:** ler os termos antes. Resultado:
+   - **Remotar: fora.** Os termos (`remotar.com.br/termos-de-uso`, seção "Obrigações do Candidato") proíbem "mecanismos, software ou scripts" e cópia por "Robot/Crawler".
+   - **CIEE: fora por enquanto.** O link "Termos de uso" do portal leva só à política de privacidade, que não trata de acesso automatizado. O `robots.txt` de `portal.ciee.org.br` está vazio, mas as vagas ficam em apps Angular (`web.ciee.org.br`, `pp.ciee.org.br`) que só carregam por API interna sem documentação. Sem canal aberto, não entra.
+3. **IEL:** o usuário informou `https://carreiras.iel.org.br/TO`. **Por enquanto, só Tocantins** (Goiás fica para depois).
+   - `robots.txt`: `Allow: /`, `Disallow: /api/`. Não usar a API.
+   - O `sitemap.xml` oficial lista as vagas (24 de TO em 2026-11-19). A página de cada vaga (`/TO/vaga/estagio/{id}/{slug}`) vem em HTML pronto, com campos rotulados: Empresa, Atividades, Requisitos, Cursos, Escolaridade, Cidade, Remuneração, Benefícios, Horários e Formato de trabalho. **Não tem data de publicação** (`publicado_em = null`; o id é crescente).
+   - Plano do coletor: ler o sitemap, filtrar `/TO/vaga/`, baixar só as vagas que ainda não estão no banco e montar o `texto` com os campos rotulados.
 
 ### O que o Bloco 4 ainda vai precisar (depois das fontes)
 

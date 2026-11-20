@@ -165,7 +165,7 @@ def test_esquema_restringe_tags_e_exige_campos() -> None:
 def test_modulo_sem_prompt_da_erro_claro() -> None:
     with pytest.raises(config.ErroConfiguracao, match="concursos"):
         cliente.carregar_prompt("concursos")
-    assert cliente.modulos_com_prompt() == ["noticias"]
+    assert cliente.modulos_com_prompt() == ["noticias", "estagios"]
 
 
 # ----------------------------------------------------------------- retentativas
@@ -251,3 +251,98 @@ def test_classificar_lote_vazio_nao_chama_o_modelo(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr(cliente, "_chamar_modelo", proibido)
     assert cliente.classificar_lote([], "noticias") == []
+
+
+# --------------------------------------------------------------------- estágios
+
+CAMPOS_VAGA: dict[str, Any] = {
+    "empresa": "Empresa Exemplo",
+    "area": "Desenvolvimento back-end",
+    "cidade": "Palmas - TO",
+    "remoto": False,
+    "bolsa": "R$ 1.200,00",
+    "requisitos": ["Cursando SI", "Git"],
+    "link_inscricao": None,
+}
+
+
+def _vaga(id_: int, texto: str = "texto da vaga") -> ItemPendente:
+    return ItemPendente(
+        id=id_,
+        modulo="estagios",
+        fonte="iel-tocantins",
+        titulo=f"Estágio {id_}",
+        url=f"https://vagas.exemplo.com/{id_}",
+        texto=texto,
+    )
+
+
+def test_campos_de_vaga_validados_e_normalizados() -> None:
+    campos = {**CAMPOS_VAGA, "bolsa": "", "cidade": "null", "requisitos": None, "extra": "x"}
+    texto = _resposta(_item_ia(1, tags=["estagio"], campos=campos))
+    [resultado] = cliente.interpretar_resposta(
+        texto, IDS, cliente.TAGS_ESTAGIOS, cliente.CamposEstagio
+    )
+    assert resultado.campos["empresa"] == "Empresa Exemplo"
+    assert resultado.campos["bolsa"] is None
+    assert resultado.campos["cidade"] is None
+    assert resultado.campos["requisitos"] == []
+    assert "extra" not in resultado.campos
+
+
+def test_vaga_com_campos_invalidos_fica_pendente() -> None:
+    texto = _resposta(
+        _item_ia(1, campos={**CAMPOS_VAGA, "remoto": "talvez"}),
+        _item_ia(2, campos=CAMPOS_VAGA),
+    )
+    resultados = cliente.interpretar_resposta(texto, IDS, None, cliente.CamposEstagio)
+    assert [r.id for r in resultados] == [2]
+
+
+def test_link_que_nao_esta_no_texto_e_descartado() -> None:
+    itens = [_vaga(1, "Inscreva-se em https://empresa.com/vaga/1"), _vaga(2), _vaga(3)]
+    resultados = [
+        cliente.Resultado(id=1, nota=8, resumo="r", campos={"link_inscricao": "https://empresa.com/vaga/1"}),
+        cliente.Resultado(id=2, nota=8, resumo="r", campos={"link_inscricao": "https://inventado.com"}),
+        cliente.Resultado(id=3, nota=8, resumo="r", campos={"link_inscricao": "https://vagas.exemplo.com/3"}),
+    ]  # fmt: skip
+    conferidos = cliente.conferir_links(resultados, itens)
+    assert [r.campos["link_inscricao"] for r in conferidos] == [
+        "https://empresa.com/vaga/1",
+        None,  # inventado
+        "https://vagas.exemplo.com/3",  # a própria URL da vaga
+    ]
+
+
+def test_esquema_de_estagios_exige_campos_e_usa_vocabulario_proprio() -> None:
+    item = cliente.esquema_resposta("estagios")["items"]
+    assert "campos" in item["required"]
+    assert item["properties"]["tags"]["items"]["enum"] == list(cliente.TAGS_ESTAGIOS)
+    assert set(item["properties"]["campos"]["required"]) == {
+        "empresa", "area", "cidade", "remoto", "bolsa", "requisitos", "link_inscricao"
+    }  # fmt: skip
+    assert "campos" not in cliente.esquema_resposta("noticias")["items"]["properties"]
+
+
+def test_prompt_de_estagios_lista_todas_as_tags_do_vocabulario() -> None:
+    prompt = cliente.carregar_prompt("estagios")
+    for tag in cliente.TAGS_ESTAGIOS:
+        assert f"`{tag}`" in prompt
+
+
+def test_conteudo_de_estagios_pede_vagas() -> None:
+    assert cliente.montar_conteudo([_vaga(1)], "estagios").startswith("Avalie estas vagas:")
+
+
+def test_classificar_lote_de_estagios(monkeypatch: pytest.MonkeyPatch) -> None:
+    def modelo_falso(instrucoes: str, conteudo: str, esquema: dict[str, Any]) -> str:
+        assert "estágio em tecnologia" in instrucoes
+        campos = {**CAMPOS_VAGA, "link_inscricao": "https://inventado.com"}
+        return _resposta(_item_ia(1, nota=9, tags=["estagio", "tocantins"], campos=campos))
+
+    monkeypatch.setattr(config, "carregar_perfil", lambda: "PERFIL-X")
+    monkeypatch.setattr(cliente, "_chamar_modelo", modelo_falso)
+    [resultado] = cliente.classificar_lote([_vaga(1)], "estagios")
+    assert resultado.tags == ["estagio", "tocantins"]
+    assert resultado.campos["empresa"] == "Empresa Exemplo"
+    assert resultado.campos["link_inscricao"] is None

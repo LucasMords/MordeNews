@@ -21,7 +21,7 @@ from google.genai import errors, types
 from pydantic import ValidationError
 
 from radar import config
-from radar.modelos import ItemPendente, Modulo, Resultado
+from radar.modelos import CamposEstagio, ItemPendente, Modulo, Resultado
 
 log = logging.getLogger(__name__)
 
@@ -39,7 +39,44 @@ TAGS_NOTICIAS: tuple[str, ...] = (
     "regulacao", "privacidade", "ciencia", "brasil", "tocantins", "games", "outros",
 )  # fmt: skip
 
-TAGS_POR_MODULO: dict[str, tuple[str, ...]] = {"noticias": TAGS_NOTICIAS}
+TAGS_ESTAGIOS: tuple[str, ...] = (
+    "estagio", "trainee", "junior", "pleno-senior", "remoto", "hibrido", "presencial",
+    "tocantins", "goias", "backend", "frontend", "full-stack", "mobile", "dados", "ia",
+    "devops", "infra", "suporte", "qa", "seguranca", "fora-de-ti", "outros",
+)  # fmt: skip
+
+TAGS_POR_MODULO: dict[str, tuple[str, ...]] = {
+    "noticias": TAGS_NOTICIAS,
+    "estagios": TAGS_ESTAGIOS,
+}
+
+# Campos específicos do módulo (seção 4 do CLAUDE.md), validados item a item.
+CAMPOS_POR_MODULO: dict[str, type[CamposEstagio]] = {"estagios": CamposEstagio}
+
+_TEXTO_OU_NULO: dict[str, Any] = {"type": ["string", "null"]}
+ESQUEMA_CAMPOS: dict[str, dict[str, Any]] = {
+    "estagios": {
+        "type": "object",
+        "properties": {
+            "empresa": _TEXTO_OU_NULO,
+            "area": _TEXTO_OU_NULO,
+            "cidade": _TEXTO_OU_NULO,
+            "remoto": {"type": ["boolean", "null"]},
+            "bolsa": _TEXTO_OU_NULO,
+            "requisitos": {"type": "array", "items": {"type": "string"}, "maxItems": 6},
+            "link_inscricao": _TEXTO_OU_NULO,
+        },
+        "required": [
+            "empresa", "area", "cidade", "remoto", "bolsa", "requisitos", "link_inscricao"
+        ],
+    },
+}  # fmt: skip
+
+PEDIDO_POR_MODULO: dict[str, str] = {
+    "noticias": "Avalie estas notícias:",
+    "estagios": "Avalie estas vagas:",
+    "concursos": "Avalie estes editais:",
+}
 
 
 class ErroIA(RuntimeError):
@@ -98,10 +135,10 @@ def texto_para_ia(texto: str | None) -> str:
     return limpo[:LIMITE_TEXTO_IA]
 
 
-def montar_conteudo(itens: Sequence[ItemPendente]) -> str:
+def montar_conteudo(itens: Sequence[ItemPendente], modulo: Modulo = "noticias") -> str:
     """Só id, título e os primeiros 1.500 caracteres do texto vão para a IA."""
     lista = [{"id": i.id, "titulo": i.titulo, "texto": texto_para_ia(i.texto)} for i in itens]
-    return "Avalie estas notícias:\n" + json.dumps(lista, ensure_ascii=False)
+    return f"{PEDIDO_POR_MODULO[modulo]}\n" + json.dumps(lista, ensure_ascii=False)
 
 
 def esquema_resposta(modulo: Modulo) -> dict[str, Any]:
@@ -110,20 +147,21 @@ def esquema_resposta(modulo: Modulo) -> dict[str, Any]:
     item_tag: dict[str, Any] = (
         {"type": "string", "enum": list(tags)} if tags else {"type": "string"}
     )
+    propriedades: dict[str, Any] = {
+        "id": {"type": "integer"},
+        "nota": {"type": "integer", "minimum": 0, "maximum": 10},
+        "resumo": {"type": "string"},
+        "tags": {"type": "array", "items": item_tag, "maxItems": 4},
+        "descartar": {"type": "boolean"},
+        "prazo": {"type": ["string", "null"], "format": "date"},
+    }
+    obrigatorios = ["id", "nota", "resumo", "tags", "descartar", "prazo"]
+    if modulo in ESQUEMA_CAMPOS:
+        propriedades["campos"] = ESQUEMA_CAMPOS[modulo]
+        obrigatorios.append("campos")
     return {
         "type": "array",
-        "items": {
-            "type": "object",
-            "properties": {
-                "id": {"type": "integer"},
-                "nota": {"type": "integer", "minimum": 0, "maximum": 10},
-                "resumo": {"type": "string"},
-                "tags": {"type": "array", "items": item_tag, "maxItems": 4},
-                "descartar": {"type": "boolean"},
-                "prazo": {"type": ["string", "null"], "format": "date"},
-            },
-            "required": ["id", "nota", "resumo", "tags", "descartar", "prazo"],
-        },
+        "items": {"type": "object", "properties": propriedades, "required": obrigatorios},
     }
 
 
@@ -133,7 +171,10 @@ _CERCA = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.IGNORECASE)
 
 
 def interpretar_resposta(
-    texto: str | None, ids_esperados: set[int], tags_validas: Sequence[str] | None = None
+    texto: str | None,
+    ids_esperados: set[int],
+    tags_validas: Sequence[str] | None = None,
+    modelo_campos: type[CamposEstagio] | None = None,
 ) -> list[Resultado]:
     """Valida a resposta da IA item a item. Itens inválidos, repetidos ou com id
     desconhecido são ignorados (e continuam pendentes)."""
@@ -155,6 +196,8 @@ def interpretar_resposta(
     for bruto in dados:
         try:
             resultado = Resultado.model_validate(bruto)
+            if modelo_campos is not None:
+                resultado.campos = modelo_campos.model_validate(resultado.campos).model_dump()
         except ValidationError as erro:
             id_bruto = bruto.get("id") if isinstance(bruto, dict) else None
             log.warning("item %s inválido na resposta da IA: %s", id_bruto, erro.errors()[0]["msg"])
@@ -235,6 +278,23 @@ def classificar_lote(itens: Sequence[ItemPendente], modulo: Modulo) -> list[Resu
     if not itens:
         return []
     instrucoes = montar_instrucoes(modulo, config.carregar_perfil(), date.today())
-    conteudo = montar_conteudo(itens)
+    conteudo = montar_conteudo(itens, modulo)
     texto = com_retentativas(lambda: _chamar_modelo(instrucoes, conteudo, esquema_resposta(modulo)))
-    return interpretar_resposta(texto, {i.id for i in itens}, TAGS_POR_MODULO.get(modulo))
+    resultados = interpretar_resposta(
+        texto, {i.id for i in itens}, TAGS_POR_MODULO.get(modulo), CAMPOS_POR_MODULO.get(modulo)
+    )
+    return conferir_links(resultados, itens)
+
+
+def conferir_links(
+    resultados: Sequence[Resultado], itens: Sequence[ItemPendente]
+) -> list[Resultado]:
+    """A IA nunca inventa link: `link_inscricao` só fica se aparece no texto ou é a URL do item."""
+    por_id = {i.id: i for i in itens}
+    for resultado in resultados:
+        link = resultado.campos.get("link_inscricao")
+        item = por_id.get(resultado.id)
+        if link and item and link != item.url and link not in (item.texto or ""):
+            log.warning("item %s: link_inscricao fora do texto foi descartado", resultado.id)
+            resultado.campos["link_inscricao"] = None
+    return list(resultados)

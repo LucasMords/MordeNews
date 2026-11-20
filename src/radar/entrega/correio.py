@@ -85,20 +85,30 @@ def _titulo_email(assuntos: Sequence[Assunto], hoje: date) -> str:
     return f"{NOME_REMETENTE} {hoje:%d/%m}: {len(assuntos)} {plural}{extra}"
 
 
-def _rodape(nota_minima: int, fora: int) -> str:
+def _rodape(nota_minima: int, fora: int, nota_minima_estagios: int | None = None) -> str:
     texto = f"Itens com nota {nota_minima} ou mais, ordenados por nota."
+    if nota_minima_estagios is not None and nota_minima_estagios != nota_minima:
+        if nota_minima_estagios <= 0:
+            texto += " Vagas de estágio aparecem com qualquer nota (as fora de TI são descartadas)."
+        else:
+            texto += f" Vagas de estágio aparecem a partir da nota {nota_minima_estagios}."
     if fora:
         texto += f" Outros {fora} itens com nota suficiente ficaram de fora pelo limite diário."
     return texto
 
 
 def montar_mensagem(
-    assuntos: Sequence[Assunto | ItemResumo], hoje: date, *, nota_minima: int, fora: int = 0
+    assuntos: Sequence[Assunto | ItemResumo],
+    hoje: date,
+    *,
+    nota_minima: int,
+    fora: int = 0,
+    nota_minima_estagios: int | None = None,
 ) -> Mensagem:
     """Monta o resumo agrupado por módulo e ordenado por nota, em HTML e texto puro."""
     normalizados = [a if isinstance(a, Assunto) else Assunto(a) for a in assuntos]
     grupos = _por_modulo(normalizados)
-    rodape = _rodape(nota_minima, fora)
+    rodape = _rodape(nota_minima, fora, nota_minima_estagios)
     return Mensagem(
         assunto=_titulo_email(normalizados, hoje),
         texto=_montar_texto(grupos, hoje, rodape),
@@ -113,6 +123,19 @@ def _linha_meta(item: ItemResumo) -> str:
     return " · ".join(partes)
 
 
+def _linha_vaga(item: ItemResumo) -> str | None:
+    """Empresa · local · bolsa, para vagas. Só o que a triagem extraiu do texto."""
+    campos = item.campos
+    if item.modulo != "estagios" or not campos:
+        return None
+    local = campos.get("cidade")
+    if campos.get("remoto") is True:
+        local = f"{local} (remoto)" if local else "Remoto"
+    partes = [campos.get("empresa"), local, campos.get("bolsa")]
+    texto = " · ".join(str(p) for p in partes if p)
+    return texto or None
+
+
 def _montar_texto(grupos: Grupos, hoje: date, rodape: str) -> str:
     linhas = [f"{NOME_REMETENTE} — resumo de {_data(hoje)}", ""]
     for modulo, assuntos in grupos:
@@ -121,6 +144,8 @@ def _montar_texto(grupos: Grupos, hoje: date, rodape: str) -> str:
             item = assunto.principal
             linhas.append(f"[{item.nota}] {item.titulo}")
             linhas.append(f"    {_linha_meta(item)}")
+            if vaga := _linha_vaga(item):
+                linhas.append(f"    {vaga}")
             if item.resumo:
                 linhas.append(f"    {item.resumo}")
             if item.prazo:
@@ -161,6 +186,8 @@ def _assunto_html(assunto: Assunto) -> str:
         f'<div style="color:#667085;font-size:12px;margin:0 0 4px 0;">'
         f"{escape(_linha_meta(item))}</div>",
     ]
+    if vaga := _linha_vaga(item):
+        blocos.append(f'<div style="margin:0 0 4px 0;font-weight:600;">{escape(vaga)}</div>')
     if item.resumo:
         blocos.append(f'<div style="margin:0 0 4px 0;">{escape(item.resumo)}</div>')
     if item.prazo:

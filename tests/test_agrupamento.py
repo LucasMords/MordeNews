@@ -121,3 +121,57 @@ def test_modulos_diferentes_nunca_agrupam() -> None:
 def test_assuntos_saem_ordenados_por_nota() -> None:
     itens = [_item(1, "Um assunto", nota=6), _item(2, "Outro tema", nota=9)]
     assert [a.nota for a in agrupar(itens)] == [9, 6]
+
+
+def test_vagas_com_titulos_iguais_nao_sao_agrupadas() -> None:
+    a = _item(1, "Estágio em Desenvolvimento Web", modulo="estagios")
+    b = _item(2, "Estágio em Desenvolvimento Web", modulo="estagios")
+    assert len(agrupar([a, b])) == 2
+
+
+def test_mesma_vaga_em_dois_repositorios_e_agrupada() -> None:
+    a = _item(
+        1,
+        "[Tech Lead] MilkBox - Remoto (Brasil)",
+        modulo="estagios",
+        fonte="gh-devops",
+        campos={"empresa": "MilkBox"},
+    )
+    b = _item(
+        2,
+        "[Remoto] Tech Lead na MilkBox",
+        modulo="estagios",
+        fonte="gh-frontendbr",
+        campos={"empresa": "Milkbox"},
+        nota=6,
+    )
+    assuntos = agrupar([a, b])
+    assert len(assuntos) == 1 and assuntos[0].repetidos[0].id == 2
+
+
+def test_vagas_da_mesma_empresa_na_mesma_fonte_nao_agrupam() -> None:
+    def vaga(id_: int, titulo: str) -> ItemResumo:
+        return _item(
+            id_, titulo, modulo="estagios", fonte="iel", campos={"empresa": "SESI - DR/TO"}
+        )
+
+    itens = [
+        vaga(1, "Estágio em Educação Física - Licenciatura"),
+        vaga(2, "Estágio em Educação Física - Bacharelado"),
+    ]
+    assert len(agrupar(itens)) == 2
+
+
+def test_vagas_parecidas_de_empresas_diferentes_nao_agrupam() -> None:
+    a = _item(1, "Estágio em Suporte de TI", modulo="estagios", campos={"empresa": "Acme"})
+    b = _item(2, "Estágio em Suporte de TI", modulo="estagios", campos={"empresa": "Beta"})
+    assert len(agrupar([a, b])) == 2
+
+
+def test_vagas_diferentes_da_mesma_empresa_e_cidade_nao_agrupam() -> None:
+    campos = {"empresa": "Proativa RH", "cidade": "São Paulo - SP"}
+    a = _item(
+        1, "DevOps Engineer (Sênior) / Proativa RH - São Paulo", modulo="estagios", campos=campos
+    )
+    b = _item(2, "[São Paulo] Software QA Manager na Proativa RH", modulo="estagios", campos=campos)
+    assert len(agrupar([a, b])) == 2

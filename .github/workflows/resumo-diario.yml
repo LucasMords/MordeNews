@@ -24,6 +24,8 @@ jobs:
       EMAIL_DESTINO: ${{ secrets.EMAIL_DESTINO }}
       NOTA_MINIMA_RESUMO: ${{ vars.NOTA_MINIMA_RESUMO }}   # opcional (aba Variables); vazio = 6
       RESUMO_MAXIMO: ${{ vars.RESUMO_MAXIMO }}             # opcional (aba Variables); vazio = 30
+      NOTA_MINIMA_ESTAGIOS: ${{ vars.NOTA_MINIMA_ESTAGIOS }} # opcional; vazio = 0 (todas as vagas)
+      ESTAGIOS_MAXIMO: ${{ vars.ESTAGIOS_MAXIMO }}         # opcional; vazio = 15
     steps:
       - uses: actions/checkout@v7
 

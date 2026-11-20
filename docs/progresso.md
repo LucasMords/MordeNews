@@ -8,8 +8,56 @@
 - **Bloco 1 — Coletor RSS:** concluído (2026-11-18). Coleta local: 180 itens, e 0 duplicados na 2ª execução. No GitHub Actions (`workflow_dispatch`): 10/10 fontes ok e 7 itens novos sem duplicar, total de 187 no banco. O cron diário (06:13 BRT) está ativo.
 - **Bloco 2 — Triagem por IA:** concluído (2026-11-19). Amostra de 20 notas aprovada pelo usuário. No GitHub Actions (`workflow_dispatch`, 12:48 UTC): coleta de 106 itens novos e triagem dos 106, sem erro. No banco: 265 processados, 28 descartados, 0 pendentes. 
 - **Bloco 3 — Resumo diário por e-mail:** concluído (2026-11-19). **Fim do MVP.** 1º envio local: 30 assuntos (45 itens). O usuário confirmou que chegou na caixa de entrada, fora do spam. Depois, via `workflow_dispatch` no GitHub: 31 itens novos, sem repetir nenhum do 1º envio (76 itens distintos marcados). 
-- **Bloco 4 — Vagas de estágio:** pesquisa de fontes feita em 2026-11-19, aguardando decisões do usuário. Resultados e pendências em [`retomar.md`](retomar.md#5-bloco-4--onde-paramos-exatamente).
-- ⚠️ **O cron das 06:13 BRT de 2026-11-19 não disparou** (0 execuções `schedule` no GitHub, workflow `active`). O GitHub pode atrasar ou descartar crons em horários de carga, principalmente em workflows recém-criados. Conferir em 2026-11-20. Se falhar de novo, adicionar um segundo horário de reserva no `coletar.yml`. Rodar de novo não causa problema: a coleta não duplica e a triagem só pega pendentes.
+- **Bloco 4 — Vagas de estágio:** concluído localmente (2026-11-20). 12 fontes de vagas, 22 vagas triadas com dados reais e a seção "Estágios" na prévia do e-mail, com empresa, local e bolsa. **Falta:** rodar via `workflow_dispatch` no GitHub e ver o primeiro estágio de TI real chegar (o lote de hoje só tinha pleno, sênior e vagas fora de TI).
+- ⚠️ **O cron das 06:13 BRT de 2026-11-19 não disparou** (0 execuções `schedule` no GitHub, workflow `active`). O GitHub pode atrasar ou descartar crons em horários de carga, principalmente em workflows recém-criados. Em 2026-11-20 a coleta local das 09:46 BRT ainda trouxe 77 itens novos, sinal de que o cron provavelmente falhou de novo (conferir com `gh run list`). Se confirmado, adicionar um segundo horário de reserva. Rodar de novo não causa problema: a coleta não duplica e a triagem só pega pendentes.
+
+---
+
+## Bloco 4 — Vagas de estágio (2026-11-19 a 2026-11-20)
+
+### Fontes (decididas pelo usuário; detalhes em [`retomar.md`](retomar.md#5-bloco-4--onde-paramos-exatamente))
+
+- **Programathor:** RSS oficial, usando o coletor `rss` que já existia.
+- **10 repositórios de vagas no GitHub** (backend-br, frontendbr, react-brasil, nodejsdevbr, phpdevbr, soujava, dotnetdevbr, androiddevbr, DevOps-Brasil, qa-brasil): API REST oficial, uma issue por vaga.
+- **IEL Tocantins** (`carreiras.iel.org.br/TO`): lê o `sitemap.xml` oficial e baixa só as páginas de vagas novas. Respeita o `robots.txt`, que bloqueia só `/api/`. Janela de 14 dias, porque as vagas ficam abertas por semanas.
+- Ficaram de fora: LinkedIn, Instagram, Indeed, Catho e Vagas.com.br (bloqueiam robôs), Remotar (os termos proíbem robôs) e CIEE (só API interna sem documentação).
+
+### O que foi feito
+
+- `coletores/github.py` (`tipo: github`): issues abertas, sem pull requests, com as labels no texto (nível, modalidade, contrato). Usa `GITHUB_TOKEN` quando existe (no Actions é o token automático; localmente é opcional, com limite de 60 req/h).
+- `coletores/html.py` (`tipo: iel`): sitemap → páginas das vagas → texto montado com os campos rotulados (Empresa, Atividades, Requisitos, Cidade, Remuneração...). O mural não informa a data de publicação, então `publicado_em = null`.
+- `ia/prompts/estagios.md`: nota de 0 a 10 com prioridade para estágio em TI em TO, GO ou remoto. Extrai `empresa`, `area`, `cidade`, `remoto`, `bolsa`, `requisitos`, `link_inscricao` e `prazo`. Descarta vagas fora de TI. Vagas sênior não são descartadas: ganham nota baixa e o resumo explica a incompatibilidade.
+- **Pedidos do usuário (2026-11-20):**
+  - **Vaga júnior em TI tem nota 6 ou mais**, nunca 5 ou menos (regra fixa no prompt).
+  - **Vagas aparecem no e-mail mesmo com nota baixa.** Variável nova `NOTA_MINIMA_ESTAGIOS` (padrão 0, ou seja, todas as triadas; as fora de TI já foram descartadas) e `ESTAGIOS_MAXIMO` (padrão 15). O limite das vagas é **separado** do `RESUMO_MAXIMO`, para as vagas não disputarem espaço com as notícias. O rodapé do e-mail explica a regra.
+- E-mail: a linha "Empresa · Local · Bolsa" aparece em cada vaga.
+- Agrupamento de vagas: a **mesma vaga repostada em outro repositório** vira uma entrada só, com "Também em". A regra exige fontes diferentes, a mesma empresa e títulos parecidos **sem contar** empresa, cidade e modalidade. Na mesma fonte nunca junta (ex.: SESI Licenciatura × Bacharelado são duas vagas).
+- `banco.para_resumo` ganhou o filtro `modulos`.
+- Sem dependências novas.
+
+### Validação com dados reais (2026-11-20)
+
+- Coleta: 22 fontes ok, nenhuma duplicada na 2ª execução.
+- Triagem: 22 vagas, todas com resposta válida. 8 do IEL descartadas por serem fora de TI (Educação Física, Administração, Pedagogia, Marketing), mesmo assim com empresa, cidade e bolsa extraídas certinho. 14 pleno/sênior com nota de 1 a 5 e o motivo da incompatibilidade no resumo.
+- Prévia do e-mail: 10 entradas em "Estágios" (14 vagas, 4 repostadas agrupadas) e 30 assuntos em notícias.
+
+### Como testar
+
+```powershell
+uv run ruff check . ; uv run pytest
+$env:PYTHONIOENCODING="utf-8"
+uv run radar coletar --fonte iel-tocantins
+uv run radar triar --modulo estagios
+uv run radar revisar --modulo estagios --quantidade 20
+uv run radar resumo --simular --salvar previa.html
+```
+
+### Pendências
+
+- [ ] Rodar `coletar` e `resumo-diario` via `workflow_dispatch` no GitHub.
+- [ ] Ver o primeiro estágio/júnior de TI real e conferir a nota (≥ 6) e os campos no e-mail.
+- [ ] IEL Goiás: ficou para depois (decisão do usuário).
+- [ ] Opcional: variáveis `NOTA_MINIMA_ESTAGIOS` e `ESTAGIOS_MAXIMO` na aba Variables (vazio = 0 e 15).
 
 ---
 

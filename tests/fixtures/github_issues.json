@@ -1,0 +1,43 @@
+[
+  {
+    "html_url": "https://github.com/exemplo/vagas/issues/12",
+    "number": 12,
+    "title": "[Remoto] Estágio em Desenvolvimento Back-end - Empresa Exemplo",
+    "labels": [{"name": "Remoto"}, {"name": "Estágio"}, {"name": "Python"}],
+    "created_at": "2026-11-18T09:30:00Z",
+    "body": "## Descrição\n\nVaga de **estágio** para estudantes de TI.<br>\n\nBolsa: R$ 1.500,00\n\nInscrições: https://empresa-exemplo.com/vagas/12"
+  },
+  {
+    "html_url": "https://github.com/exemplo/vagas/pull/11",
+    "number": 11,
+    "title": "Atualiza o README",
+    "labels": [],
+    "created_at": "2026-11-18T08:00:00Z",
+    "body": "PR, não é vaga",
+    "pull_request": {"url": "https://api.github.com/repos/exemplo/vagas/pulls/11"}
+  },
+  {
+    "html_url": "https://github.com/exemplo/vagas/issues/10",
+    "number": 10,
+    "title": "[Palmas] Desenvolvedor Sênior Java",
+    "labels": [{"name": "Sênior"}, {"name": "Presencial"}],
+    "created_at": "2026-11-17T12:00:00Z",
+    "body": null
+  },
+  {
+    "html_url": "https://github.com/exemplo/vagas/issues/3",
+    "number": 3,
+    "title": "Vaga antiga, fora da janela",
+    "labels": [],
+    "created_at": "2026-10-01T12:00:00Z",
+    "body": "antiga"
+  },
+  {
+    "html_url": "",
+    "number": 2,
+    "title": "Issue sem link",
+    "labels": [],
+    "created_at": "2026-11-18T12:00:00Z",
+    "body": ""
+  }
+]

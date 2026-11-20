@@ -149,6 +149,11 @@ def comando_revisar(args: argparse.Namespace) -> int:
         print(f"\n[{item['nota']:>2}] {item['titulo']}{marca}")
         print(f"     {item['fonte']} · {', '.join(item['tags'] or [])} · id {item['id']}")
         print(f"     {item['resumo']}")
+        campos = {k: v for k, v in (item.get("campos") or {}).items() if v not in (None, [], "")}
+        if campos:
+            print(f"     campos: {campos}")
+        if item.get("prazo"):
+            print(f"     prazo: {item['prazo']}")
         print(f"     {item['url']}")
     return 0
 

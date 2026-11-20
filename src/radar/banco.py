@@ -203,7 +203,7 @@ def triados_recentes(modulo: Modulo, limite: int) -> list[dict[str, Any]]:
         "GET",
         "/itens",
         params={
-            "select": "id,fonte,titulo,url,nota,resumo,tags,status,prazo",
+            "select": "id,fonte,titulo,url,nota,resumo,tags,status,prazo,campos",
             "modulo": f"eq.{modulo}",
             "status": "in.(processado,descartado)",
             "order": "coletado_em.desc,id.desc",
@@ -213,24 +213,29 @@ def triados_recentes(modulo: Modulo, limite: int) -> list[dict[str, Any]]:
     return list(linhas or [])
 
 
-def para_resumo(desde: datetime, nota_minima: int, limite: int = 500) -> list[ItemResumo]:
+def para_resumo(
+    desde: datetime,
+    nota_minima: int,
+    limite: int = 500,
+    modulos: Sequence[str] | None = None,
+) -> list[ItemResumo]:
     """Itens processados, ainda não enviados, coletados a partir de `desde` e com nota mínima.
 
-    Vêm ordenados por nota (maior primeiro) e, no empate, pelos mais recentes.
+    `modulos` restringe a busca (padrão: todos). Vêm ordenados por nota (maior primeiro) e, no
+    empate, pelos mais recentes.
     """
-    linhas = _requisitar(
-        "GET",
-        "/itens",
-        params={
-            "select": "id,modulo,fonte,titulo,url,publicado_em,nota,resumo,tags,prazo",
-            "status": "eq.processado",
-            "enviado_em": "is.null",
-            "nota": f"gte.{nota_minima}",
-            "coletado_em": f"gte.{desde.isoformat()}",
-            "order": "nota.desc,publicado_em.desc.nullslast,id.desc",
-            "limit": str(limite),
-        },
-    )
+    params = {
+        "select": "id,modulo,fonte,titulo,url,publicado_em,nota,resumo,tags,prazo,campos",
+        "status": "eq.processado",
+        "enviado_em": "is.null",
+        "nota": f"gte.{nota_minima}",
+        "coletado_em": f"gte.{desde.isoformat()}",
+        "order": "nota.desc,publicado_em.desc.nullslast,id.desc",
+        "limit": str(limite),
+    }
+    if modulos:
+        params["modulo"] = f"in.({','.join(modulos)})"
+    linhas = _requisitar("GET", "/itens", params=params)
     return [ItemResumo.model_validate(linha) for linha in linhas or []]
 
 

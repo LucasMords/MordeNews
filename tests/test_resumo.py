@@ -127,6 +127,40 @@ def test_segundo_envio_nao_repete_itens(
     assert _ids_enviados(supabase) == [1, 2, 3]
 
 
+def test_vagas_aparecem_com_nota_baixa_e_limite_proprio(
+    supabase: SupabaseFalso, enviados: list[correio.Mensagem]
+) -> None:
+    vaga = {"modulo": "estagios", "campos": {"empresa": "Acme", "cidade": "Palmas - TO"}}
+    # notícias 9 e 7 enchem o RESUMO_MAXIMO (2); as vagas de nota 2 e 1 entram mesmo assim
+    _semear(supabase, [9, 7, 2, 1, 3], **{"3": vaga, "4": vaga, "5": {"status": "descartado"}})
+
+    resultado = resumo.enviar_resumo(agora=AGORA)
+
+    texto = enviados[0].texto
+    assert "[2] Notícia 3" in texto and "[1] Notícia 4" in texto
+    assert "Acme · Palmas - TO" in texto
+    assert "Notícia 5" not in texto  # descartado nunca aparece
+    assert "Vagas de estágio aparecem com qualquer nota" in texto
+    assert resultado.fora == 0
+    assert _ids_enviados(supabase) == [1, 2, 3, 4]
+
+
+def test_vagas_respeitam_limite_e_nota_propria(
+    supabase: SupabaseFalso, enviados: list[correio.Mensagem], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        config, "carregar", lambda: replace(CFG, nota_minima_estagios=2, estagios_maximo=1)
+    )
+    vaga = {"modulo": "estagios"}
+    _semear(supabase, [4, 3, 1], **{"1": vaga, "2": vaga, "3": vaga})
+
+    resultado = resumo.enviar_resumo(agora=AGORA)
+
+    assert "[4] Notícia 1" in enviados[0].texto and "Notícia 2" not in enviados[0].texto
+    assert "a partir da nota 2" in enviados[0].texto
+    assert (resultado.enviados, resultado.fora) == (1, 1)  # a de nota 1 nem é candidata
+
+
 def test_sem_itens_nao_envia_email(
     supabase: SupabaseFalso, enviados: list[correio.Mensagem]
 ) -> None:

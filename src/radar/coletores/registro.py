@@ -5,12 +5,16 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from radar.coletores.base import Coletor
+from radar.coletores.github import ColetorGitHub
+from radar.coletores.html import ColetorIEL
 from radar.coletores.http import ClienteHttp
 from radar.coletores.rss import ColetorRSS
 from radar.modelos import Fonte
 
 TIPOS: dict[str, type[Coletor]] = {
     "rss": ColetorRSS,
+    "github": ColetorGitHub,
+    "iel": ColetorIEL,
 }
 
 

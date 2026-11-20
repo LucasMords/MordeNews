@@ -16,6 +16,7 @@ from radar.modelos import ItemResumo
 log = logging.getLogger(__name__)
 
 JANELA_HORAS = 36  # cobre o intervalo entre coletas com folga para cron atrasado
+MODULOS_GERAIS = ("noticias", "concursos")
 
 
 @dataclass(frozen=True)
@@ -39,19 +40,30 @@ def enviar_resumo(*, simular: bool = False, agora: datetime | None = None) -> Re
     agora = agora or datetime.now(UTC)
     iniciado_em = datetime.now(UTC)
 
-    candidatos = banco.para_resumo(agora - timedelta(hours=JANELA_HORAS), cfg.nota_minima_resumo)
-    escolhidos, de_fora = selecionar(candidatos, cfg.resumo_maximo)
+    desde = agora - timedelta(hours=JANELA_HORAS)
+    # Vagas têm nota mínima e limite próprios: aparecem mesmo com nota baixa (pedido do usuário)
+    # e não disputam espaço com as notícias.
+    gerais = banco.para_resumo(desde, cfg.nota_minima_resumo, modulos=MODULOS_GERAIS)
+    vagas = banco.para_resumo(desde, cfg.nota_minima_estagios, modulos=("estagios",))
+    candidatos = [*gerais, *vagas]
+    escolhidos_gerais, fora_gerais = selecionar(gerais, cfg.resumo_maximo)
+    escolhidas_vagas, fora_vagas = selecionar(vagas, cfg.estagios_maximo)
+    escolhidos = [*escolhidos_gerais, *escolhidas_vagas]
     ids = [item.id for assunto in escolhidos for item in assunto.itens]
-    fora = sum(len(a.itens) for a in de_fora)
+    fora = sum(len(a.itens) for a in [*fora_gerais, *fora_vagas])
     if not escolhidos:
-        log.info("resumo: nenhum item novo com nota >= %d; nada a enviar", cfg.nota_minima_resumo)
+        log.info("resumo: nenhum item novo para enviar")
         if credenciais is not None:
             _registrar(iniciado_em, ok=True, enviados=0)
         return ResultadoResumo(0, 0, 0, None)
 
     hoje = agora.astimezone(correio.BRASILIA).date()
     mensagem = correio.montar_mensagem(
-        escolhidos, hoje, nota_minima=cfg.nota_minima_resumo, fora=fora
+        escolhidos,
+        hoje,
+        nota_minima=cfg.nota_minima_resumo,
+        fora=fora,
+        nota_minima_estagios=cfg.nota_minima_estagios if escolhidas_vagas else None,
     )
     resultado = ResultadoResumo(len(escolhidos), len(ids), fora, mensagem)
     log.info(

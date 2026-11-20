@@ -163,3 +163,25 @@ def test_falha_de_conexao_vira_erro_envio(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(correio.smtplib, "SMTP_SSL", sem_rede)
     with pytest.raises(correio.ErroEnvio, match="rede indisponível"):
         _enviar()
+
+
+def _vaga(id_: int, nota: int, campos: dict[str, Any]) -> ItemResumo:
+    return _item(id_, nota, modulo="estagios", fonte="iel-tocantins", campos=campos)
+
+
+def test_vaga_mostra_empresa_local_e_bolsa() -> None:
+    vaga = _vaga(1, 9, {"empresa": "Empresa <X>", "cidade": "Palmas - TO", "bolsa": "R$ 1.200,00"})
+    remota = _vaga(2, 8, {"empresa": "Remota SA", "cidade": None, "remoto": True, "bolsa": None})
+    mensagem = correio.montar_mensagem([vaga, remota], HOJE, nota_minima=6)
+    assert "Empresa <X> · Palmas - TO · R$ 1.200,00" in mensagem.texto
+    assert "Remota SA · Remoto" in mensagem.texto
+    assert "Empresa &lt;X&gt; · Palmas - TO · R$ 1.200,00" in mensagem.html
+    assert "== Estágios (2) ==" in mensagem.texto
+
+
+def test_noticia_e_vaga_sem_campos_nao_ganham_linha_extra() -> None:
+    noticia = _item(1, 9, campos={"empresa": "não deve aparecer"})
+    vaga = _vaga(2, 8, {})
+    mensagem = correio.montar_mensagem([noticia, vaga], HOJE, nota_minima=6)
+    assert "não deve aparecer" not in mensagem.texto
+    assert " ·  · " not in mensagem.texto

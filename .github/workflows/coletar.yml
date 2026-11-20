@@ -21,6 +21,7 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       RADAR_CONTATO: ${{ secrets.RADAR_CONTATO }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # automático; usado pelo coletor de vagas
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}   # opcional (aba Variables); vazio = padrão do código
     steps:

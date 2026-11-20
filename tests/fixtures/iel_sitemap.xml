@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Formato do sitemap real de carreiras.iel.org.br (2026-11-19), com URLs fictícias. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url>
+<loc>https://carreiras.iel.org.br/</loc>
+<changefreq>weekly</changefreq>
+<priority>1</priority>
+</url>
+<url>
+<loc>https://carreiras.iel.org.br/TO/vaga/estagio/40001/estagio-em-desenvolvimento-web</loc>
+<lastmod>2026-11-18T10:00:00.000Z</lastmod>
+<changefreq>daily</changefreq>
+</url>
+<url>
+<loc>https://carreiras.iel.org.br/TO/vaga/estagio/40002/estagio-em-suporte-de-ti</loc>
+<lastmod>2026-11-17T09:00:00.000Z</lastmod>
+<changefreq>daily</changefreq>
+</url>
+<url>
+<loc>https://carreiras.iel.org.br/TO/vaga/estagio/30000/estagio-antigo</loc>
+<lastmod>2026-09-01T09:00:00.000Z</lastmod>
+<changefreq>daily</changefreq>
+</url>
+<url>
+<loc>https://carreiras.iel.org.br/ES/vaga/estagio/40003/estagio-em-outro-estado</loc>
+<lastmod>2026-11-18T11:00:00.000Z</lastmod>
+<changefreq>daily</changefreq>
+</url>
+</urlset>

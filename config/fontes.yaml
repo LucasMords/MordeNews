@@ -2,7 +2,7 @@
 #
 # Formato de cada fonte:
 #   - nome: nome-curto-unico        # minúsculas, números e hífen; vira o campo `fonte` do item
-#     tipo: rss                     # rss (html, pdf e api entram nos blocos 4 e 5)
+#     tipo: rss                     # rss | github (issues de um repositório) | iel (mural do IEL)
 #     url: https://exemplo.com/feed
 #     janela_horas: 72              # opcional; só itens publicados nas últimas N horas (padrão 72)
 #     limite: 50                    # opcional; máximo de itens por execução (padrão e teto: 50)
@@ -49,5 +49,51 @@ noticias:
     tipo: rss
     url: https://www.tabnews.com.br/recentes/rss
 
-estagios: []
+# Estágios: fontes aprovadas pelo usuário em 2026-11-19. Só canais oficiais e abertos.
+# Ficaram de fora: LinkedIn, Instagram, Indeed, Catho, Vagas.com.br (bloqueiam robôs ou proíbem
+# nos termos), Remotar (os termos proíbem robôs/crawlers) e CIEE (só API interna, sem documentação).
+estagios:
+  # Só tecnologia. A maioria é pleno/sênior; a triagem dá nota baixa a essas.
+  - nome: programathor
+    tipo: rss
+    url: https://programathor.com.br/jobs.rss
+
+  # Comunidades que publicam uma vaga por issue (API REST oficial do GitHub).
+  - nome: gh-backend-br
+    tipo: github
+    url: https://api.github.com/repos/backend-br/vagas   # o mais ativo (~40 vagas/mês)
+  - nome: gh-frontendbr
+    tipo: github
+    url: https://api.github.com/repos/frontendbr/vagas
+  - nome: gh-react-brasil
+    tipo: github
+    url: https://api.github.com/repos/react-brasil/vagas
+  - nome: gh-nodejsdevbr
+    tipo: github
+    url: https://api.github.com/repos/nodejsdevbr/vagas
+  - nome: gh-phpdevbr
+    tipo: github
+    url: https://api.github.com/repos/phpdevbr/vagas
+  - nome: gh-soujava
+    tipo: github
+    url: https://api.github.com/repos/soujava/vagas-java
+  - nome: gh-dotnetdevbr
+    tipo: github
+    url: https://api.github.com/repos/dotnetdevbr/vagas
+  - nome: gh-androiddevbr
+    tipo: github
+    url: https://api.github.com/repos/androiddevbr/vagas
+  - nome: gh-devops-brasil
+    tipo: github
+    url: https://api.github.com/repos/DevOps-Brasil/Vagas
+  - nome: gh-qa-brasil
+    tipo: github
+    url: https://api.github.com/repos/qa-brasil/vagas
+
+  # Mural de estágios do IEL Tocantins. Lê o sitemap.xml oficial (o robots.txt só bloqueia /api/).
+  # As vagas ficam abertas por semanas, por isso a janela maior.
+  - nome: iel-tocantins
+    tipo: iel
+    url: https://carreiras.iel.org.br/TO
+    janela_horas: 336
 concursos: []

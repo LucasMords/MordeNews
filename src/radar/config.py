@@ -39,6 +39,9 @@ class Configuracao:
     smtp_host: str = "smtp.gmail.com"
     smtp_porta: int = 465
     resumo_maximo: int = 30
+    github_token: str | None = None
+    nota_minima_estagios: int = 0  # vagas aparecem mesmo com nota baixa (pedido do usuário)
+    estagios_maximo: int = 15  # limite próprio, para as vagas não disputarem espaço com notícias
 
     def __repr__(self) -> str:  # nunca expor chaves nem dados pessoais em logs ou tracebacks
         return (
@@ -106,6 +109,9 @@ def ler_ambiente() -> Configuracao:
         smtp_host=_texto("SMTP_HOST") or "smtp.gmail.com",
         smtp_porta=_inteiro("SMTP_PORTA", 465),
         resumo_maximo=_inteiro("RESUMO_MAXIMO", 30),
+        github_token=_texto("GITHUB_TOKEN"),
+        nota_minima_estagios=_inteiro("NOTA_MINIMA_ESTAGIOS", 0),
+        estagios_maximo=_inteiro("ESTAGIOS_MAXIMO", 15),
     )
 
 

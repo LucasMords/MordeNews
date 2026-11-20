@@ -59,11 +59,11 @@ class ClienteHttp:
     def fechar(self) -> None:
         self._http.close()
 
-    def get(self, url: str) -> httpx.Response:
+    def get(self, url: str, cabecalhos: dict[str, str] | None = None) -> httpx.Response:
         """GET respeitando robots.txt e a pausa por domínio. Erros HTTP viram exceção."""
         if not self.permitido(url):
             raise BloqueadoPorRobots(f"robots.txt de {urlsplit(url).netloc} não permite {url}")
-        resposta = self._requisitar(url)
+        resposta = self._requisitar(url, cabecalhos)
         resposta.raise_for_status()
         return resposta
 
@@ -93,7 +93,7 @@ class ClienteHttp:
             robots.parse(resposta.text.splitlines())
         return robots
 
-    def _requisitar(self, url: str) -> httpx.Response:
+    def _requisitar(self, url: str, cabecalhos: dict[str, str] | None = None) -> httpx.Response:
         dominio = urlsplit(url).netloc
         ultimo = self._ultimo_acesso.get(dominio)
         if ultimo is not None:
@@ -101,6 +101,6 @@ class ClienteHttp:
             if espera > 0:
                 self._dormir(espera)
         try:
-            return self._http.get(url)
+            return self._http.get(url, headers=cabecalhos)
         finally:
             self._ultimo_acesso[dominio] = self._relogio()
