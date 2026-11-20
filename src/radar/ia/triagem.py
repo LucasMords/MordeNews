@@ -27,7 +27,7 @@ class ResumoTriagem:
     descartados: int = 0
     sem_resposta: int = 0
     para_erro: int = 0
-    interrompido_por_cota: bool = False
+    interrompido: str | None = None  # motivo, quando a IA ficou temporariamente fora
 
     @property
     def triados(self) -> int:
@@ -48,7 +48,8 @@ def triar(
     dormir: Callable[[float], None] = time.sleep,
 ) -> ResumoTriagem:
     """Tria até `maximo` itens pendentes do módulo. Cada item tem no máximo uma tentativa por
-    execução. Cota esgotada encerra a execução sem erro; os pendentes ficam para a próxima."""
+    execução. Cota esgotada ou modelo sobrecarregado (5xx) encerra a execução sem erro; os
+    pendentes ficam para a próxima."""
     iniciado_em = datetime.now(UTC)
     resumo = ResumoTriagem(modulo)
     itens = banco.pendentes(modulo, maximo)
@@ -59,9 +60,13 @@ def triar(
                 dormir(pausa)
             try:
                 resultados = cliente.classificar_lote(lote, modulo)
-            except cliente.CotaEsgotada as erro:
+            except cliente.IATemporariamenteFora as erro:
                 log.warning("triagem %s interrompida: %s", modulo, erro)
-                resumo.interrompido_por_cota = True
+                resumo.interrompido = (
+                    "cota esgotada"
+                    if isinstance(erro, cliente.CotaEsgotada)
+                    else "modelo indisponível"
+                )
                 break
             _gravar_lote(lote, resultados, resumo)
     except Exception as erro:
@@ -95,8 +100,8 @@ def _gravar_lote(
 def _registrar(
     resumo: ResumoTriagem, iniciado_em: datetime, *, ok: bool, erro: str | None = None
 ) -> None:
-    if resumo.interrompido_por_cota and erro is None:
-        erro = "interrompida por cota esgotada; pendentes ficam para a próxima execução"
+    if resumo.interrompido and erro is None:
+        erro = f"interrompida ({resumo.interrompido}); pendentes ficam para a próxima execução"
     try:
         banco.registrar_execucao(
             f"triagem-{resumo.modulo}",

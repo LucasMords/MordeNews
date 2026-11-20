@@ -114,7 +114,8 @@ def comando_coletar(args: argparse.Namespace) -> int:
 
 
 def comando_triar(args: argparse.Namespace) -> int:
-    """Tria os pendentes. Cota esgotada não é falha; erro da IA ou do banco é."""
+    """Tria os pendentes. Cota esgotada ou modelo sobrecarregado não é falha; outro erro da IA
+    ou do banco é."""
     cfg = config.carregar()
     cfg.exigir_supabase()
     cfg.exigir_gemini()
@@ -130,9 +131,9 @@ def comando_triar(args: argparse.Namespace) -> int:
             resumo.descartados,
             resumo.sem_resposta,
             resumo.para_erro,
-            " — interrompida por cota" if resumo.interrompido_por_cota else "",
+            f" — interrompida ({resumo.interrompido})" if resumo.interrompido else "",
         )
-        if resumo.interrompido_por_cota:
+        if resumo.interrompido:
             break
     return 0
 

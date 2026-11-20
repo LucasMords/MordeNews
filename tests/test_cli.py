@@ -174,6 +174,22 @@ def test_triar_cota_esgotada_retorna_0(
     assert cli.main(["triar"]) == 0
 
 
+def test_triar_modelo_sobrecarregado_retorna_0_e_para_os_outros_modulos(
+    ambiente_triagem: SupabaseFalso, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    chamadas: list[Modulo] = []
+
+    def sobrecarregado(_i: Sequence[ItemPendente], modulo: Modulo) -> list[Resultado]:
+        chamadas.append(modulo)
+        raise ia_cliente.ModeloSobrecarregado("503 high demand")
+
+    monkeypatch.setattr(ia_cliente, "classificar_lote", sobrecarregado)
+    assert cli.main(["triar"]) == 0
+    assert len(chamadas) == 1  # não insiste nos outros módulos
+    execucao = ambiente_triagem.tabelas["execucoes"][-1]
+    assert execucao["ok"] is True and "modelo indisponível" in execucao["erro"]
+
+
 def test_triar_erro_da_ia_retorna_1(
     ambiente_triagem: SupabaseFalso, monkeypatch: pytest.MonkeyPatch
 ) -> None:

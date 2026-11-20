@@ -112,8 +112,17 @@ class ErroIA(RuntimeError):
     """Falha ao chamar o modelo (chave inválida, erro do servidor persistente etc.)."""
 
 
-class CotaEsgotada(ErroIA):
+class IATemporariamenteFora(ErroIA):
+    """Falha passageira do fornecedor que persistiu após as retentativas. A triagem para sem
+    falhar o workflow; os pendentes ficam para a próxima execução."""
+
+
+class CotaEsgotada(IATemporariamenteFora):
     """O fornecedor recusou por cota (HTTP 429) mesmo após as retentativas."""
+
+
+class ModeloSobrecarregado(IATemporariamenteFora):
+    """O fornecedor respondeu 5xx (ex.: 503 "high demand") mesmo após as retentativas."""
 
 
 # ------------------------------------------------------------------ prompt
@@ -283,7 +292,9 @@ def com_retentativas[T](chamar: Callable[[], T], dormir: Callable[[float], None]
             if tentativa == MAX_RETENTATIVAS:
                 if codigo == 429:
                     raise CotaEsgotada(f"cota do Gemini esgotada: {erro.message}") from erro
-                raise ErroIA(f"Gemini indisponível ({codigo}): {erro.message}") from erro
+                raise ModeloSobrecarregado(
+                    f"Gemini indisponível ({codigo}): {erro.message}"
+                ) from erro
             motivo = f"HTTP {codigo}"
         except httpx.HTTPError as erro:
             if tentativa == MAX_RETENTATIVAS:

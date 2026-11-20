@@ -178,7 +178,7 @@ Mantenha `.env.example` atualizado sempre que criar uma variável nova.
 - **Sempre em lote:** 20–30 itens por requisição. Nunca um item por chamada — o plano gratuito tem limite diário baixo.
 - Envie à IA só `id`, `titulo` e os primeiros 1.500 caracteres do `texto`, mais o conteúdo de `config/perfil.md`.
 - Use saída estruturada (`response_mime_type="application/json"` + schema) e valide com pydantic. Item ausente ou inválido na resposta → continua `pendente`, incrementa `tentativas_ia`; após 3 tentativas → `erro`.
-- Em erro 429 (cota), faça backoff exponencial até 3 vezes e então pare a execução sem falhar o workflow; os pendentes ficam para a próxima rodada.
+- Em erro 429 (cota) ou 5xx (modelo sobrecarregado, ex.: 503 "high demand"), faça backoff exponencial até 3 vezes e então pare a execução sem falhar o workflow; os pendentes ficam para a próxima rodada (503 incluído a pedido do usuário em 2026-11-20).
 - Saída esperada por item:
 
 ```json

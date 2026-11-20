@@ -123,7 +123,7 @@ def test_cota_esgotada_para_sem_erro_e_preserva_pendentes(
     _usar(monkeypatch, classificador)
     resumo = triagem.triar("noticias", tamanho_lote=2, pausa=0)
 
-    assert resumo.interrompido_por_cota and resumo.processados == 2
+    assert resumo.interrompido == "cota esgotada" and resumo.processados == 2
     linhas = _linhas(supabase)
     assert [linhas[i]["status"] for i in (4, 3)] == ["processado", "processado"]
     assert [(linhas[i]["status"], linhas[i]["tentativas_ia"]) for i in (2, 1)] == [

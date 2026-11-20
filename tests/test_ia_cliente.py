@@ -213,8 +213,8 @@ def test_429_persistente_vira_cota_esgotada() -> None:
     assert chamar.chamadas == 4
 
 
-def test_5xx_persistente_vira_erro_ia_mas_nao_cota() -> None:
-    with pytest.raises(cliente.ErroIA) as info:
+def test_5xx_persistente_vira_modelo_sobrecarregado_mas_nao_cota() -> None:
+    with pytest.raises(cliente.ModeloSobrecarregado) as info:
         cliente.com_retentativas(Sequencia(*[_erro(503)] * 4), dormir=lambda _: None)
     assert not isinstance(info.value, cliente.CotaEsgotada)
 
