@@ -23,7 +23,8 @@ O **MVP está pronto e rodando sozinho** (blocos 0 a 3). Todo dia o GitHub Actio
 | Horário (Brasília) | Workflow | O que faz |
 |---|---|---|
 | 06:13 | `coletar.yml` | `radar coletar --todos`, depois recria o perfil a partir do secret e roda `radar triar` |
-| 07:07 | `resumo-diario.yml` | `radar resumo`: envia até 30 assuntos com nota ≥ 6, agrupando notícias repetidas |
+| 08:02 | `resumo-diario.yml` | `radar resumo`: até 30 assuntos com nota ≥ 6 (notícias repetidas agrupadas) e até 15 vagas com qualquer nota |
+| 15:04 | `resumo-diario.yml` | `radar resumo --reserva`: só envia se o resumo das 08h falhou ou não rodou |
 | a cada push | `testes.yml` | `ruff check`, `ruff format --check`, `pytest` |
 
 **Secrets já criados no GitHub:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `PERFIL_MD`, `EMAIL_REMETENTE`, `EMAIL_SENHA_APP`, `EMAIL_DESTINO`.

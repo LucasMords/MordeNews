@@ -161,7 +161,7 @@ def comando_revisar(args: argparse.Namespace) -> int:
 def comando_resumo(args: argparse.Namespace) -> int:
     """Envia o resumo diário por e-mail (ou só mostra, com --simular)."""
     config.carregar().exigir_supabase()
-    resultado = resumo.enviar_resumo(simular=args.simular)
+    resultado = resumo.enviar_resumo(simular=args.simular, reserva=args.reserva)
     if args.simular and resultado.mensagem:
         print(f"Assunto: {resultado.mensagem.assunto}\n")
         print(resultado.mensagem.texto)
@@ -210,6 +210,11 @@ def _montar_parser() -> argparse.ArgumentParser:
     )
     resumo_cmd.add_argument(
         "--salvar", type=Path, metavar="ARQUIVO.html", help="com --simular, salva a prévia HTML"
+    )
+    resumo_cmd.add_argument(
+        "--reserva",
+        action="store_true",
+        help="execução de reserva: só envia se o resumo de hoje ainda não deu certo",
     )
     resumo_cmd.set_defaults(funcao=comando_resumo)
 

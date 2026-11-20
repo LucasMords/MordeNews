@@ -2,7 +2,9 @@ name: resumo-diario
 
 on:
   schedule:
-    - cron: "7 10 * * *"   # 07:07 em Brasília (cron do GitHub é em UTC), depois da coleta das 06:13
+    # Cron do GitHub é em UTC (Brasília = UTC−3). Horários pedidos pelo usuário em 2026-11-20.
+    - cron: "2 11 * * *"   # 08:02 BRT: resumo do dia
+    - cron: "4 18 * * *"   # 15:04 BRT: reserva, só envia se o das 08h falhou ou não rodou
   workflow_dispatch:
 
 permissions:
@@ -37,4 +39,6 @@ jobs:
         run: uv sync --frozen --no-dev
 
       - name: Enviar resumo por e-mail
-        run: uv run --frozen --no-dev radar resumo
+        env:
+          RESERVA: ${{ github.event.schedule == '4 18 * * *' && '--reserva' || '' }}
+        run: uv run --frozen --no-dev radar resumo $RESERVA

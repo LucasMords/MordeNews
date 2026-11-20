@@ -279,6 +279,20 @@ def registrar_execucao(
     )
 
 
+def houve_execucao_ok(coletor: str, desde: datetime) -> bool:
+    """Se `coletor` teve alguma execução bem-sucedida iniciada a partir de `desde`."""
+    linhas = _requisitar(
+        "GET",
+        "/execucoes",
+        params={
+            "select": "ok",
+            "coletor": f"eq.{coletor}",
+            "iniciado_em": f"gte.{desde.astimezone(UTC).isoformat()}",
+        },
+    )
+    return any(linha.get("ok") is True for linha in linhas or [])
+
+
 def ultimas_execucoes(coletor: str, limite: int = 5) -> list[dict[str, Any]]:
     linhas = _requisitar(
         "GET",

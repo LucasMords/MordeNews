@@ -33,12 +33,28 @@ def selecionar(itens: Sequence[ItemResumo], maximo: int) -> tuple[list[Assunto],
     return assuntos[:maximo], assuntos[maximo:]
 
 
-def enviar_resumo(*, simular: bool = False, agora: datetime | None = None) -> ResultadoResumo:
-    """Envia o resumo do dia. Sem itens, não envia nada. Em `simular`, só monta a mensagem."""
+def ja_enviado_hoje(agora: datetime) -> bool:
+    """Se já houve um resumo bem-sucedido hoje (dia de Brasília), com ou sem e-mail."""
+    meia_noite = agora.astimezone(correio.BRASILIA).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    return banco.houve_execucao_ok("resumo-diario", desde=meia_noite)
+
+
+def enviar_resumo(
+    *, simular: bool = False, agora: datetime | None = None, reserva: bool = False
+) -> ResultadoResumo:
+    """Envia o resumo do dia. Sem itens, não envia nada. Em `simular`, só monta a mensagem.
+
+    Em `reserva` (execução das 15h), só age se o resumo da manhã não deu certo ou não rodou.
+    """
     cfg = config.carregar()
     credenciais = None if simular else cfg.exigir_email()  # falha logo se faltar configuração
     agora = agora or datetime.now(UTC)
     iniciado_em = datetime.now(UTC)
+    if reserva and ja_enviado_hoje(agora):
+        log.info("resumo (reserva): o resumo de hoje já deu certo; nada a fazer")
+        return ResultadoResumo(0, 0, 0, None)
 
     desde = agora - timedelta(hours=JANELA_HORAS)
     # Vagas têm nota mínima e limite próprios: aparecem mesmo com nota baixa (pedido do usuário)

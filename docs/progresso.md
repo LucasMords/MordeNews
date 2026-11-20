@@ -33,6 +33,7 @@
 - E-mail: a linha "Empresa · Local · Bolsa" aparece em cada vaga.
 - Agrupamento de vagas: a **mesma vaga repostada em outro repositório** vira uma entrada só, com "Também em". A regra exige fontes diferentes, a mesma empresa e títulos parecidos **sem contar** empresa, cidade e modalidade. Na mesma fonte nunca junta (ex.: SESI Licenciatura × Bacharelado são duas vagas).
 - `banco.para_resumo` ganhou o filtro `modulos`.
+- **Novo horário do resumo (pedido do usuário, 2026-11-20):** 08:02 BRT, com **reserva às 15:04 BRT**. A reserva roda `radar resumo --reserva`, que confere em `execucoes` se já houve um `resumo-diario` com `ok = true` desde a meia-noite de Brasília, com ou sem e-mail. Se houve, não faz nada. Se a execução das 08h falhou ou nem rodou (o GitHub chegou a pular e atrasar crons), envia. Função nova: `banco.houve_execucao_ok`.
 - Sem dependências novas.
 
 ### Validação com dados reais (2026-11-20)
@@ -104,7 +105,7 @@ No GitHub: **Actions → resumo-diario → Run workflow** (secrets `EMAIL_REMETE
 
 ### Pendências
 
-- [ ] Conferir em 2026-11-20 se os crons **agendados** dispararam: `coletar` às 06:13 BRT e `resumo-diario` às 07:07 BRT. O de 2026-11-19 não disparou.
+- [x] Crons conferidos em 2026-11-20: o `coletar` de 11-19 rodou com ~9h de atraso; o `resumo-diario` nunca disparou pelo cron. O resumo passou para 08:02 BRT, com reserva às 15:04 BRT (ver Bloco 4).
 - [ ] `RADAR_CONTATO` (User-Agent): pode usar o Gmail do projeto.
 - [ ] Hugging Face sem texto: manter ou trocar (a triagem pelo título está funcionando).
 - Monitoramento (bloco 9): os alertas de falha agora vão por e-mail. A função de envio já existe e pode ser reaproveitada.

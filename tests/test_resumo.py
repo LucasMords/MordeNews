@@ -204,3 +204,40 @@ def test_sem_credenciais_falha_antes_de_consultar(
     with pytest.raises(config.ErroConfiguracao, match="EMAIL_DESTINO"):
         resumo.enviar_resumo(agora=AGORA)
     assert supabase.requisicoes == []
+
+
+def test_reserva_nao_envia_se_o_resumo_de_hoje_deu_certo(
+    supabase: SupabaseFalso, enviados: list[correio.Mensagem]
+) -> None:
+    _semear(supabase, [9])
+    resumo.enviar_resumo(agora=AGORA)  # 07:07 BRT
+    _semear(supabase, [8])  # chegou item novo depois
+
+    tarde = datetime(2026, 11, 19, 18, 4, tzinfo=UTC)  # 15:04 BRT
+    supabase.tabelas["execucoes"][-1]["iniciado_em"] = AGORA.isoformat()
+    resultado = resumo.enviar_resumo(agora=tarde, reserva=True)
+
+    assert resultado.mensagem is None and len(enviados) == 1
+
+
+def test_reserva_envia_se_o_resumo_da_manha_falhou(
+    supabase: SupabaseFalso, enviados: list[correio.Mensagem]
+) -> None:
+    _semear(supabase, [9])
+    supabase.tabelas["execucoes"].append(
+        {"coletor": "resumo-diario", "ok": False, "iniciado_em": AGORA.isoformat()}
+    )
+    tarde = datetime(2026, 11, 19, 18, 4, tzinfo=UTC)
+    resultado = resumo.enviar_resumo(agora=tarde, reserva=True)
+    assert resultado.enviados == 1 and len(enviados) == 1
+
+
+def test_resumo_de_ontem_nao_bloqueia_a_reserva_de_hoje(
+    supabase: SupabaseFalso, enviados: list[correio.Mensagem]
+) -> None:
+    supabase.tabelas["execucoes"].append(
+        {"coletor": "resumo-diario", "ok": True, "iniciado_em": "2026-11-19T02:00:00+00:00"}
+    )  # 23:00 BRT do dia 18
+    _semear(supabase, [9])
+    resultado = resumo.enviar_resumo(agora=datetime(2026, 11, 19, 18, 4, tzinfo=UTC), reserva=True)
+    assert resultado.enviados == 1
