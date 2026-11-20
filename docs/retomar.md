@@ -5,7 +5,7 @@
 
 ## 1. Resumo em uma frase
 
-O **MVP está pronto e rodando sozinho**, agora também com **vagas de estágio** (blocos 0 a 4). Todo dia, às 08:02 (reserva às 15:04), o GitHub Actions coleta notícias de 10 feeds e vagas de 12 fontes, a IA dá nota e resumo a cada item e um e-mail chega com as notícias mais relevantes e as vagas. O próximo é o **Bloco 5 (editais de concurso)**.
+O **MVP está pronto e rodando sozinho**, agora também com **vagas de estágio** (blocos 0 a 4). Todo dia, às 08:02 (reserva às 15:04), o GitHub Actions coleta notícias de 10 feeds e vagas de 12 fontes, a IA dá nota e resumo a cada item e um e-mail chega com as notícias mais relevantes e as vagas. O **Bloco 5 (concursos de TO e GO)** está pronto e aguarda validação do usuário.
 
 ## 2. O que já funciona
 
@@ -16,14 +16,14 @@ O **MVP está pronto e rodando sozinho**, agora também com **vagas de estágio*
 | 2 — Triagem por IA (Gemini `gemini-3.5-flash-lite`) | ✅ concluído, amostra de 20 notas aprovada | 2026-11-19 |
 | 3 — Resumo diário **por e-mail** (substituiu o Telegram) | ✅ concluído, e-mail recebido na caixa de entrada | 2026-11-19 |
 | 4 — Vagas de estágio (GitHub, Programathor, IEL TO) | ✅ concluído, e-mail com vagas confirmado | 2026-11-20 |
-| 5 — Editais de concurso | ⏭️ próximo | — |
+| 5 — Editais de concurso (Concursos no Brasil, PCI) | 🟡 pronto, aguardando validação | — |
 | 6 a 9 | ⏳ não iniciados | — |
 
 ### Rotina automática (GitHub Actions, repositório público `LucasMords/MordeNews`)
 
 | Horário (Brasília) | Workflow | O que faz |
 |---|---|---|
-| 08:02 | `resumo-diario.yml` | coleta todas as fontes, tria com a IA e roda `radar resumo`: até 30 assuntos com nota ≥ 6 (notícias repetidas agrupadas) e até 15 vagas com qualquer nota |
+| 08:02 | `resumo-diario.yml` | coleta todas as fontes, tria com a IA e roda `radar resumo`: até 30 assuntos com nota ≥ 6 (notícias repetidas agrupadas), até 15 vagas com qualquer nota e até 20 concursos sem nota, pelo prazo; depois `radar alertas-prazo` (inscrições terminando em até 3 dias, 1 alerta por dia) |
 | 15:04 | `resumo-diario.yml` | coleta, tria e roda `radar resumo --reserva`: só envia se o resumo das 08h falhou ou não rodou |
 | a cada push | `testes.yml` | `ruff check`, `ruff format --check`, `pytest` |
 
@@ -74,7 +74,7 @@ No macOS/Linux: instale o uv com `curl -LsSf https://astral.sh/uv/install.sh | s
 
 Abra o Claude Code na pasta do projeto e peça algo como:
 
-> Leia o `CLAUDE.md`, o `docs/retomar.md` e o `docs/progresso.md` e comece o Bloco 5.
+> Leia o `CLAUDE.md`, o `docs/retomar.md` e o `docs/progresso.md` e continue a partir das pendências do Bloco 5.
 
 ## 4. Comandos do dia a dia
 

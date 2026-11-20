@@ -42,6 +42,8 @@ class Configuracao:
     github_token: str | None = None
     nota_minima_estagios: int = 0  # vagas aparecem mesmo com nota baixa (pedido do usuário)
     estagios_maximo: int = 15  # limite próprio, para as vagas não disputarem espaço com notícias
+    nota_minima_concursos: int = 0  # concursos não são filtrados por nota (pedido do usuário)
+    concursos_maximo: int = 20
 
     def __repr__(self) -> str:  # nunca expor chaves nem dados pessoais em logs ou tracebacks
         return (
@@ -112,6 +114,8 @@ def ler_ambiente() -> Configuracao:
         github_token=_texto("GITHUB_TOKEN"),
         nota_minima_estagios=_inteiro("NOTA_MINIMA_ESTAGIOS", 0),
         estagios_maximo=_inteiro("ESTAGIOS_MAXIMO", 15),
+        nota_minima_concursos=_inteiro("NOTA_MINIMA_CONCURSOS", 0),
+        concursos_maximo=_inteiro("CONCURSOS_MAXIMO", 20),
     )
 
 

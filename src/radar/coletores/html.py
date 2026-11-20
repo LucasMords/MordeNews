@@ -16,9 +16,10 @@ from __future__ import annotations
 import logging
 import re
 import xml.etree.ElementTree as ET
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any
 from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup
@@ -171,3 +172,76 @@ class ColetorIEL(Coletor):
                 "%s: não foi possível consultar o banco (%s); baixando assim mesmo", self.nome, erro
             )
             return False
+
+
+# ---------------------------------------------------------------- PCI Concursos
+#
+# `ColetorPCI`: página de concursos abertos do PCI Concursos (`/concursos/`), filtrada pelas
+# UFs da fonte. Uma única requisição por execução: a lista já traz órgão, UF, vagas, salário,
+# cargos, escolaridade e o prazo de inscrição, sem abrir as notícias. O usuário decidiu incluir
+# esta fonte em 2026-11-20 ciente de que os termos do site proíbem "raspagem ou coleta
+# automatizada em massa" (cláusula na seção do servidor MCP; o robots.txt permite /concursos/).
+
+
+class ErroPCI(RuntimeError):
+    """A página de concursos não tem o formato esperado."""
+
+
+def _partes(tag: Any) -> list[str]:
+    """Textos de uma célula separados pelos <br>, já sem espaços extras."""
+    if tag is None:
+        return []
+    return [_ESPACOS.sub(" ", t).strip() for t in tag.get_text("\n").split("\n") if t.strip()]
+
+
+def ler_pci(html: str, ufs: Sequence[str]) -> list[tuple[str, str, str]]:
+    """Concursos das `ufs` na página de concursos abertos: lista de (título, url, texto)."""
+    sopa = BeautifulSoup(html, "html.parser")
+    celulas = sopa.select("div.ca")
+    if not celulas:
+        raise ErroPCI("nenhum concurso reconhecido na página (o layout mudou?)")
+    concursos = []
+    for celula in celulas:
+        bloco = celula.parent
+        uf = bloco.select_one("div.cc")
+        sigla = uf.get_text(strip=True) if uf else ""
+        link = celula.find("a", href=True)
+        if sigla not in ufs or link is None:
+            continue
+        orgao = _ESPACOS.sub(" ", link.get_text(" ", strip=True))
+        titulo = link.get("title") or orgao
+        vagas, *detalhes = _partes(bloco.select_one("div.cd")) or [""]
+        inscricao = " ".join(_partes(bloco.select_one("div.ce")))
+        linhas = [f"Órgão: {orgao}", f"UF: {sigla}"]
+        if vagas:
+            linhas.append(f"Vagas e salário: {vagas}")
+        if detalhes:
+            linhas.append(f"Cargos: {detalhes[0]}")
+        if len(detalhes) > 1:
+            linhas.append(f"Escolaridade: {' '.join(detalhes[1:])}")
+        if inscricao:
+            linhas.append(f"Inscrições até: {inscricao}")
+        concursos.append((titulo, link["href"], "\n".join(linhas)))
+    return concursos
+
+
+class ColetorPCI(Coletor):
+    def buscar(self) -> list[Item]:
+        if not self.fonte.ufs:
+            raise ErroPCI(f"{self.nome}: informe as UFs da fonte (campo `ufs`)")
+        concursos = ler_pci(self.http.get(self.fonte.url).text, self.fonte.ufs)
+        log.info(
+            "%s: %d concursos abertos em %s", self.nome, len(concursos), "/".join(self.fonte.ufs)
+        )
+        itens = [
+            Item(
+                modulo=self.fonte.modulo,
+                fonte=self.nome,
+                titulo=titulo,
+                url=url,
+                publicado_em=None,  # a lista não informa a data; a deduplicação evita repetir
+                texto=texto,
+            )
+            for titulo, url, texto in concursos
+        ]
+        return itens[: self.fonte.limite]

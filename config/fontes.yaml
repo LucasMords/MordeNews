@@ -2,10 +2,12 @@
 #
 # Formato de cada fonte:
 #   - nome: nome-curto-unico        # minúsculas, números e hífen; vira o campo `fonte` do item
-#     tipo: rss                     # rss | github (issues de um repositório) | iel (mural do IEL)
+#     tipo: rss                     # rss | rss-pagina (feed + página do artigo) | github (issues
+#                                   # de um repositório) | iel (mural do IEL) | pci (PCI Concursos)
 #     url: https://exemplo.com/feed
 #     janela_horas: 72              # opcional; só itens publicados nas últimas N horas (padrão 72)
 #     limite: 50                    # opcional; máximo de itens por execução (padrão e teto: 50)
+#     ufs: [TO, GO]                 # só para `pci`: estados que entram
 #
 # Lista de notícias aprovada pelo usuário em 2026-11-18. Todas foram checadas: o feed responde
 # e o robots.txt permite coleta. Lobsters e Canaltech ficaram de fora porque o robots.txt bloqueia.
@@ -96,4 +98,25 @@ estagios:
     tipo: iel
     url: https://carreiras.iel.org.br/TO
     janela_horas: 336
-concursos: []
+
+# Concursos de TO e GO. Fontes aprovadas pelo usuário em 2026-11-20 ("qualquer concurso do TO ou GO").
+# Também entram os concursos nacionais que estes feeds publicam (IBGE, ANPD...).
+concursos:
+  # Feeds por estado do Concursos no Brasil (robots.txt permite tudo, menos /wp-admin/).
+  # O feed traz uma frase; o coletor abre a página do artigo de cada concurso novo.
+  - nome: cnb-tocantins
+    tipo: rss-pagina
+    url: https://concursosnobrasil.com/concursos/to/feed/
+    janela_horas: 336
+  - nome: cnb-goias
+    tipo: rss-pagina
+    url: https://concursosnobrasil.com/concursos/go/feed/
+    janela_horas: 336
+
+  # PCI Concursos: uma requisição por execução à lista de concursos abertos. O usuário decidiu
+  # incluir em 2026-11-20 assumindo o risco: os termos proíbem "raspagem ou coleta automatizada em
+  # massa" (cláusula na seção do servidor MCP). O robots.txt permite /concursos/.
+  - nome: pci-to-go
+    tipo: pci
+    url: https://www.pciconcursos.com.br/concursos/
+    ufs: [TO, GO]

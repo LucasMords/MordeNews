@@ -35,6 +35,8 @@ jobs:
       RESUMO_MAXIMO: ${{ vars.RESUMO_MAXIMO }}             # opcional (aba Variables); vazio = 30
       NOTA_MINIMA_ESTAGIOS: ${{ vars.NOTA_MINIMA_ESTAGIOS }} # opcional; vazio = 0 (todas as vagas)
       ESTAGIOS_MAXIMO: ${{ vars.ESTAGIOS_MAXIMO }}         # opcional; vazio = 15
+      NOTA_MINIMA_CONCURSOS: ${{ vars.NOTA_MINIMA_CONCURSOS }} # opcional; vazio = 0 (todos)
+      CONCURSOS_MAXIMO: ${{ vars.CONCURSOS_MAXIMO }}       # opcional; vazio = 20
     steps:
       - uses: actions/checkout@v7
 
@@ -66,3 +68,8 @@ jobs:
         env:
           RESERVA: ${{ github.event.schedule == '4 18 * * *' && '--reserva' || '' }}
         run: uv run --frozen --no-dev radar resumo $RESERVA
+
+      # Inscrições terminando em até 3 dias. No máximo um alerta por dia (confere em `execucoes`).
+      - name: Alertar prazos de inscrição
+        if: ${{ !cancelled() }}
+        run: uv run --frozen --no-dev radar alertas-prazo

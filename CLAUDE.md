@@ -218,7 +218,7 @@ Mantenha `.env.example` atualizado sempre que criar uma variável nova.
 ### GitHub Actions
 - Cron é em **UTC** (Brasília = UTC−3). Use minutos "quebrados" para evitar atraso no início da hora.
   - `coletar.yml`: só `workflow_dispatch` (manual) → roda `radar coletar --todos` e depois `radar triar`. Desde 2026-11-20 a coleta agendada roda dentro do `resumo-diario.yml`, logo antes do envio (pedido do usuário).
-  - `resumo-diario.yml`: `2 11 * * *` (08:02 BRT) → coleta, tria e roda `radar resumo`, tudo no mesmo job; reserva `4 18 * * *` (15:04 BRT) → `radar resumo --reserva`, que só envia se o das 08h falhou ou não rodou (horários escolhidos pelo usuário em 2026-11-20).
+  - `resumo-diario.yml`: `2 11 * * *` (08:02 BRT) → coleta, tria e roda `radar resumo`, tudo no mesmo job; reserva `4 18 * * *` (15:04 BRT) → `radar resumo --reserva`, que só envia se o das 08h falhou ou não rodou (horários escolhidos pelo usuário em 2026-11-20). Depois do resumo, o mesmo job roda `radar alertas-prazo` (no máximo um alerta por dia).
 - Inclua `workflow_dispatch` em todos para rodar manualmente.
 - Segredos só via GitHub Secrets.
 - Se o repositório for público, o GitHub desativa crons após 60 dias sem atividade — o bloco 9 deve tratar isso (ex.: commit automático mensal de `docs/progresso.md`).

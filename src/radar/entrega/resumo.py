@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from radar import banco, config
 from radar.entrega import correio
@@ -16,7 +16,7 @@ from radar.modelos import ItemResumo
 log = logging.getLogger(__name__)
 
 JANELA_HORAS = 36  # cobre o intervalo entre coletas com folga para cron atrasado
-MODULOS_GERAIS = ("noticias", "concursos")
+_SEM_PRAZO = date.max
 
 
 @dataclass(frozen=True)
@@ -27,10 +27,34 @@ class ResultadoResumo:
     mensagem: correio.Mensagem | None
 
 
-def selecionar(itens: Sequence[ItemResumo], maximo: int) -> tuple[list[Assunto], list[Assunto]]:
-    """Agrupa repetidos e devolve os `maximo` assuntos de maior nota e os que ficaram de fora."""
+def selecionar(
+    itens: Sequence[ItemResumo], maximo: int, *, por_prazo: bool = False
+) -> tuple[list[Assunto], list[Assunto]]:
+    """Agrupa repetidos e devolve os `maximo` primeiros assuntos e os que ficaram de fora.
+
+    A ordem é por nota; com `por_prazo` (concursos), pelo prazo mais próximo, sem prazo no fim.
+    """
     assuntos = agrupar(itens)
+    if por_prazo:
+        assuntos.sort(key=lambda a: a.principal.prazo or _SEM_PRAZO)
     return assuntos[:maximo], assuntos[maximo:]
+
+
+def _encerrado(item: ItemResumo, agora: datetime) -> bool:
+    """Inscrição já terminou (ex.: retificação de um concurso antigo listada no PCI)."""
+    hoje = agora.astimezone(correio.BRASILIA).date()
+    return item.prazo is not None and item.prazo < hoje
+
+
+def _secoes(cfg: config.Configuracao) -> list[tuple[str, int, int]]:
+    """(módulo, nota mínima, máximo de assuntos). Cada módulo tem limite próprio, para vagas e
+    concursos não disputarem espaço com as notícias. Vagas e concursos aparecem mesmo com nota
+    baixa (pedidos do usuário em 2026-11-20)."""
+    return [
+        ("noticias", cfg.nota_minima_resumo, cfg.resumo_maximo),
+        ("estagios", cfg.nota_minima_estagios, cfg.estagios_maximo),
+        ("concursos", cfg.nota_minima_concursos, cfg.concursos_maximo),
+    ]
 
 
 def ja_enviado_hoje(agora: datetime) -> bool:
@@ -57,16 +81,21 @@ def enviar_resumo(
         return ResultadoResumo(0, 0, 0, None)
 
     desde = agora - timedelta(hours=JANELA_HORAS)
-    # Vagas têm nota mínima e limite próprios: aparecem mesmo com nota baixa (pedido do usuário)
-    # e não disputam espaço com as notícias.
-    gerais = banco.para_resumo(desde, cfg.nota_minima_resumo, modulos=MODULOS_GERAIS)
-    vagas = banco.para_resumo(desde, cfg.nota_minima_estagios, modulos=("estagios",))
-    candidatos = [*gerais, *vagas]
-    escolhidos_gerais, fora_gerais = selecionar(gerais, cfg.resumo_maximo)
-    escolhidas_vagas, fora_vagas = selecionar(vagas, cfg.estagios_maximo)
-    escolhidos = [*escolhidos_gerais, *escolhidas_vagas]
+    candidatos: list[ItemResumo] = []
+    escolhidos: list[Assunto] = []
+    de_fora: list[Assunto] = []
+    tem_vagas = False
+    for modulo, nota_minima, maximo in _secoes(cfg):
+        itens = banco.para_resumo(desde, nota_minima, modulos=(modulo,))
+        if modulo == "concursos":
+            itens = [i for i in itens if not _encerrado(i, agora)]
+        dentro, fora_modulo = selecionar(itens, maximo, por_prazo=modulo == "concursos")
+        candidatos += itens
+        escolhidos += dentro
+        de_fora += fora_modulo
+        tem_vagas = tem_vagas or (modulo == "estagios" and bool(dentro))
     ids = [item.id for assunto in escolhidos for item in assunto.itens]
-    fora = sum(len(a.itens) for a in [*fora_gerais, *fora_vagas])
+    fora = sum(len(a.itens) for a in de_fora)
     if not escolhidos:
         log.info("resumo: nenhum item novo para enviar")
         if credenciais is not None:
@@ -79,7 +108,7 @@ def enviar_resumo(
         hoje,
         nota_minima=cfg.nota_minima_resumo,
         fora=fora,
-        nota_minima_estagios=cfg.nota_minima_estagios if escolhidas_vagas else None,
+        nota_minima_estagios=cfg.nota_minima_estagios if tem_vagas else None,
     )
     resultado = ResultadoResumo(len(escolhidos), len(ids), fora, mensagem)
     log.info(

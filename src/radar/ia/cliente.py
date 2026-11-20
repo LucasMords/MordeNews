@@ -18,10 +18,10 @@ from typing import Any
 import httpx
 from google import genai
 from google.genai import errors, types
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from radar import config
-from radar.modelos import CamposEstagio, ItemPendente, Modulo, Resultado
+from radar.modelos import CamposConcurso, CamposEstagio, ItemPendente, Modulo, Resultado
 
 log = logging.getLogger(__name__)
 
@@ -45,13 +45,24 @@ TAGS_ESTAGIOS: tuple[str, ...] = (
     "devops", "infra", "suporte", "qa", "seguranca", "fora-de-ti", "outros",
 )  # fmt: skip
 
+TAGS_CONCURSOS: tuple[str, ...] = (
+    "tocantins", "goias", "nacional", "federal", "estadual", "municipal", "concurso",
+    "processo-seletivo", "estagio", "ti", "saude", "educacao", "seguranca", "administrativo",
+    "juridico", "fundamental", "medio", "tecnico", "superior", "previsto", "retificacao",
+    "outros",
+)  # fmt: skip
+
 TAGS_POR_MODULO: dict[str, tuple[str, ...]] = {
     "noticias": TAGS_NOTICIAS,
     "estagios": TAGS_ESTAGIOS,
+    "concursos": TAGS_CONCURSOS,
 }
 
 # Campos específicos do módulo (seção 4 do CLAUDE.md), validados item a item.
-CAMPOS_POR_MODULO: dict[str, type[CamposEstagio]] = {"estagios": CamposEstagio}
+CAMPOS_POR_MODULO: dict[str, type[BaseModel]] = {
+    "estagios": CamposEstagio,
+    "concursos": CamposConcurso,
+}
 
 _TEXTO_OU_NULO: dict[str, Any] = {"type": ["string", "null"]}
 ESQUEMA_CAMPOS: dict[str, dict[str, Any]] = {
@@ -70,7 +81,25 @@ ESQUEMA_CAMPOS: dict[str, dict[str, Any]] = {
             "empresa", "area", "cidade", "remoto", "bolsa", "requisitos", "link_inscricao"
         ],
     },
+    "concursos": {
+        "type": "object",
+        "properties": {
+            "orgao": _TEXTO_OU_NULO,
+            "cargos": {"type": "array", "items": {"type": "string"}, "maxItems": 10},
+            "escolaridade": _TEXTO_OU_NULO,
+            "salario_max": _TEXTO_OU_NULO,
+            "vagas": {"type": ["integer", "null"]},
+            "data_prova": _TEXTO_OU_NULO,
+            "link_edital": _TEXTO_OU_NULO,
+        },
+        "required": [
+            "orgao", "cargos", "escolaridade", "salario_max", "vagas", "data_prova", "link_edital"
+        ],
+    },
 }  # fmt: skip
+
+# Campos de link que a IA só pode devolver se estiverem escritos no texto.
+CAMPOS_LINK = ("link_inscricao", "link_edital")
 
 PEDIDO_POR_MODULO: dict[str, str] = {
     "noticias": "Avalie estas notícias:",
@@ -174,7 +203,7 @@ def interpretar_resposta(
     texto: str | None,
     ids_esperados: set[int],
     tags_validas: Sequence[str] | None = None,
-    modelo_campos: type[CamposEstagio] | None = None,
+    modelo_campos: type[BaseModel] | None = None,
 ) -> list[Resultado]:
     """Valida a resposta da IA item a item. Itens inválidos, repetidos ou com id
     desconhecido são ignorados (e continuam pendentes)."""
@@ -197,7 +226,9 @@ def interpretar_resposta(
         try:
             resultado = Resultado.model_validate(bruto)
             if modelo_campos is not None:
-                resultado.campos = modelo_campos.model_validate(resultado.campos).model_dump()
+                resultado.campos = modelo_campos.model_validate(resultado.campos).model_dump(
+                    mode="json"
+                )
         except ValidationError as erro:
             id_bruto = bruto.get("id") if isinstance(bruto, dict) else None
             log.warning("item %s inválido na resposta da IA: %s", id_bruto, erro.errors()[0]["msg"])
@@ -289,12 +320,13 @@ def classificar_lote(itens: Sequence[ItemPendente], modulo: Modulo) -> list[Resu
 def conferir_links(
     resultados: Sequence[Resultado], itens: Sequence[ItemPendente]
 ) -> list[Resultado]:
-    """A IA nunca inventa link: `link_inscricao` só fica se aparece no texto ou é a URL do item."""
+    """A IA nunca inventa link: um link só fica se aparece no texto ou é a URL do item."""
     por_id = {i.id: i for i in itens}
     for resultado in resultados:
-        link = resultado.campos.get("link_inscricao")
         item = por_id.get(resultado.id)
-        if link and item and link != item.url and link not in (item.texto or ""):
-            log.warning("item %s: link_inscricao fora do texto foi descartado", resultado.id)
-            resultado.campos["link_inscricao"] = None
+        for campo in CAMPOS_LINK:
+            link = resultado.campos.get(campo)
+            if link and item and link != item.url and link not in (item.texto or ""):
+                log.warning("item %s: %s fora do texto foi descartado", resultado.id, campo)
+                resultado.campos[campo] = None
     return list(resultados)

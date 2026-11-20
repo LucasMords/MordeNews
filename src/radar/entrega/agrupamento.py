@@ -19,7 +19,7 @@ from datetime import UTC, datetime
 from radar.entrega.correio import Assunto
 from radar.modelos import ItemResumo
 
-# Editais não são agrupados. Vagas só pela regra própria de `_mesma_vaga`: "Estágio em
+# Vagas e concursos só pelas regras próprias de `_mesma_vaga` e `_mesmo_concurso`: "Estágio em
 # Administração" de duas empresas são duas vagas.
 MODULOS_AGRUPAVEIS = frozenset({"noticias"})
 LIMIAR_TITULO = 0.6
@@ -120,6 +120,48 @@ def _mesma_vaga(
     return _parecidos(_cargo(a, titulo_a), _cargo(b, titulo_b))
 
 
+_GENERICOS = frozenset(
+    ["prefeitura", "camara", "municipal", "municipio", "estado", "estadual", "secretaria",
+     "governo", "fundo"]
+)  # fmt: skip
+
+
+def _orgao(item: ItemResumo) -> list[str]:
+    """Palavras significativas do órgão, na ordem (a primeira diz o tipo: prefeitura, câmara...)."""
+    return [
+        p
+        for p in _PALAVRA.findall(_sem_acento(str(item.campos.get("orgao") or "")))
+        if len(p) >= 3 and p not in _VAZIAS
+    ]
+
+
+def _mesmo_concurso(a: ItemResumo, b: ItemResumo) -> bool:
+    """O mesmo concurso publicado por fontes diferentes (ex.: PCI e Concursos no Brasil).
+
+    Exige fontes diferentes e o mesmo órgão: as mesmas palavras em qualquer ordem ("IFG -
+    Instituto Federal..." = "Instituto Federal... (IFG)"), ou o mesmo tipo de órgão
+    ("prefeitura" ≠ "câmara", mesmo na mesma cidade) com nomes parecidos.
+
+    Prazos diferentes indicam seleções diferentes do mesmo órgão (ex.: estágio e Jovem Aprendiz
+    da Saneago); sem prazo em um dos dois, vale só o órgão.
+    """
+    if a.modulo != "concursos" or b.modulo != "concursos" or a.fonte == b.fonte:
+        return False
+    if a.prazo and b.prazo and a.prazo != b.prazo:
+        return False
+    orgao_a, orgao_b = _orgao(a), _orgao(b)
+    if not orgao_a or not orgao_b:
+        return False
+    if set(orgao_a) == set(orgao_b):
+        return True
+    # Palavras genéricas não identificam o órgão: "Prefeitura e Câmara de Faina" e "Prefeitura e
+    # Câmara de Campo Limpo" só têm em comum "prefeitura" e "câmara".
+    nome_a, nome_b = frozenset(orgao_a) - _GENERICOS, frozenset(orgao_b) - _GENERICOS
+    if orgao_a[0] != orgao_b[0] or not nome_a or not nome_b:
+        return False
+    return nome_a == nome_b or _parecidos(nome_a, nome_b)
+
+
 def _ordem(item: ItemResumo) -> tuple[int, datetime, int]:
     return (item.nota, item.publicado_em or datetime.min.replace(tzinfo=UTC), item.id)
 
@@ -143,7 +185,9 @@ def agrupar(itens: Sequence[ItemResumo]) -> list[Assunto]:
     codigos = [cves(i) for i in itens]
     for a in range(len(itens)):
         for b in range(a + 1, len(itens)):
-            if _mesma_vaga(itens[a], itens[b], titulos[a], titulos[b]):
+            if _mesma_vaga(itens[a], itens[b], titulos[a], titulos[b]) or _mesmo_concurso(
+                itens[a], itens[b]
+            ):
                 pais[raiz(b)] = raiz(a)
                 continue
             if itens[a].modulo != itens[b].modulo or itens[a].modulo not in MODULOS_AGRUPAVEIS:

@@ -9,7 +9,65 @@
 - **Bloco 2 — Triagem por IA:** concluído (2026-11-19). Amostra de 20 notas aprovada pelo usuário. No GitHub Actions (`workflow_dispatch`, 12:48 UTC): coleta de 106 itens novos e triagem dos 106, sem erro. No banco: 265 processados, 28 descartados, 0 pendentes. 
 - **Bloco 3 — Resumo diário por e-mail:** concluído (2026-11-19). **Fim do MVP.** 1º envio local: 30 assuntos (45 itens). O usuário confirmou que chegou na caixa de entrada, fora do spam. Depois, via `workflow_dispatch` no GitHub: 31 itens novos, sem repetir nenhum do 1º envio (76 itens distintos marcados). 
 - **Bloco 4 — Vagas de estágio:** concluído (2026-11-20). 12 fontes de vagas. Via `workflow_dispatch` no GitHub: coleta de 22/22 fontes, triagem e e-mail "MordeNews 20/11: 41 itens" (30 assuntos de notícias + 11 entradas de vagas). O usuário confirmou que o e-mail chegou com a seção Estágios (empresa, local e bolsa). Coleta, triagem e resumo agora rodam no mesmo job, às 08:02 BRT, com reserva às 15:04.
+- **Bloco 5 — Editais de concurso:** pronto localmente (2026-11-20), aguardando validação do usuário. 3 fontes (Concursos no Brasil TO e GO, PCI filtrado por TO e GO), 26 concursos triados com dados reais, seção Concursos no e-mail (sem nota, por prazo) e o comando `radar alertas-prazo`. **Falta:** rodar via `workflow_dispatch` e o usuário validar.
 - Crons: em 2026-11-19 o `coletar` rodou com ~9h de atraso, e o `resumo-diario` nunca disparou pelo cron. Resolvido juntando coleta, triagem e resumo em um job às 08:02, com reserva às 15:04. **Conferir em 2026-11-21** se o das 08:02 disparou.
+
+---
+
+## Bloco 5 — Editais de concurso (2026-11-20)
+
+### Decisões do usuário
+
+- **Escopo:** "qualquer concurso do TO ou GO", de qualquer cargo ou escolaridade. Também entram os concursos nacionais que os feeds estaduais publicam (IBGE, ANPD, Ministério da Saúde).
+- **Concursos não têm nota.** Todos aparecem no e-mail, sem nota, ordenados pelo prazo de inscrição mais próximo. A IA continua dando uma nota, mas ela só serve de desempate; a função da IA aqui é extrair os campos e escrever o resumo.
+- **PCI Concursos incluído assumindo o risco.** Os termos do PCI proíbem "raspagem (scraping) ou coleta automatizada em massa", numa cláusula da seção sobre o servidor MCP deles. O `robots.txt` permite `/concursos/`. Para reduzir o impacto, o coletor faz **uma única requisição por execução** à página de concursos abertos e não abre as notícias.
+
+### Fontes
+
+| Fonte | Tipo | Como coleta |
+|---|---|---|
+| `cnb-tocantins`, `cnb-goias` (Concursos no Brasil) | `rss-pagina` | Feed RSS oficial por estado. Como o feed traz só uma frase, o coletor abre o artigo de cada concurso novo. O `robots.txt` permite tudo, menos `/wp-admin/` |
+| `pci-to-go` (PCI Concursos) | `pci` | 1 requisição à lista `/concursos/`, filtrada pelas UFs TO e GO. Órgão, vagas, salário, cargos, escolaridade e prazo já vêm na lista |
+
+Ficaram de fora: Estratégia Concursos (o filtro por estado do feed não funciona), Gran Cursos (feed por estado vazio), JC Concursos (feed nacional, sem TO/GO) e QConcursos (403 para robôs).
+
+### O que foi feito
+
+- `coletores/html.py::ColetorPCI` e `coletores/rss.py::ColetorRSSPagina` (`tipo: pci` e `tipo: rss-pagina`). O campo novo `ufs` do `fontes.yaml` serve para o PCI.
+- `ler_artigo`: texto do artigo sem anúncios, sem "Leia também" e sem menus. As frases sobre inscrição, vagas, salário e banca vão para o começo, porque a IA só recebe os primeiros 1.500 caracteres. Links externos cujo texto cita "edital" viram uma linha "Link do edital: ..."; links para outros artigos do próprio site ficam de fora.
+- `modelos.CamposConcurso`: `orgao`, `cargos`, `escolaridade`, `salario_max`, `vagas`, `data_prova`, `link_edital` (seção 4 do `CLAUDE.md`). Valor inválido vira `null` sem derrubar o item.
+- `ia/prompts/concursos.md`: extrai os campos e o **último dia de inscrição** como `prazo` (data da prova não é prazo). Só descarta o que não é concurso. O `link_edital` passa pela mesma conferência do `link_inscricao`: só fica se estiver escrito no texto.
+- E-mail: seção "Concursos" sem nota, ordenada pelo prazo, com a linha "Órgão · vagas · salário · escolaridade · prova" e o link do edital. Os concursos com inscrição já encerrada saem do e-mail (o PCI lista retificações de concursos antigos). Limite próprio: `CONCURSOS_MAXIMO` (padrão 20), e `NOTA_MINIMA_CONCURSOS` (padrão 0).
+- Agrupamento: o mesmo concurso no PCI e no Concursos no Brasil vira uma entrada só. A regra exige fontes diferentes, o mesmo órgão (as mesmas palavras em qualquer ordem, ou o mesmo tipo de órgão com o mesmo nome, sem contar palavras genéricas como "prefeitura" e "câmara") e prazos que não sejam diferentes. Com dados reais: juntou IFG, Câmara de Paraíso do Tocantins e Campo Limpo de Goiás, e manteve separados o estágio e o Jovem Aprendiz da Saneago e o concurso de Faina.
+- **`radar alertas-prazo`** (`entrega/alertas.py`): e-mail com as inscrições que terminam em até 3 dias. Entram todos os concursos, as vagas e notícias com nota ≥ `NOTA_MINIMA_RESUMO` e os itens salvos. No máximo um alerta por dia (confere em `execucoes`). O mesmo prazo volta a ser avisado nos dias seguintes até terminar, como lembrete. Roda no `resumo-diario.yml`, depois do resumo. `--simular` mostra sem enviar.
+- `banco.com_prazo(inicio, fim)` e o campo `salvo` em `ItemResumo`.
+- Sem dependências novas. O coletor de **PDF** (edital em PDF) não foi necessário: as duas fontes já trazem prazo e campos em HTML.
+
+### Validação com dados reais (2026-11-20)
+
+- Coleta: 3 fontes ok, 26 concursos novos. Um concurso nacional que apareceu nos feeds de TO e de GO não foi duplicado.
+- Triagem: 26 processados, 0 descartados, 0 sem resposta. Órgão, vagas, salário e escolaridade corretos na revisão. Prazo preenchido em 20 dos 26 (todos os 16 do PCI); os 6 do Concursos no Brasil sem prazo não citam a data de inscrição ou falam de edital previsto.
+- Prévia do e-mail: 20 entradas em "Concursos" (26 itens: 3 com inscrição encerrada e 3 repetidos agrupados), da inscrição mais próxima (24/11) à mais distante.
+- Alerta: um edital de teste com prazo para o dia seguinte, gravado no banco, gerou "MordeNews: 1 prazo de inscrição terminando" no `radar alertas-prazo --simular`. O item de teste foi apagado depois.
+
+### Como testar
+
+```powershell
+uv run ruff check . ; uv run pytest
+$env:PYTHONIOENCODING="utf-8"
+uv run radar coletar --modulo concursos
+uv run radar triar --modulo concursos
+uv run radar revisar --modulo concursos --quantidade 30
+uv run radar resumo --simular --salvar previa.html
+uv run radar alertas-prazo --simular
+```
+
+### Pendências
+
+- [ ] Rodar o `resumo-diario` via `workflow_dispatch` e conferir a seção Concursos no e-mail.
+- [ ] Ver o primeiro alerta de prazo real chegar (a partir de 21/11 há concursos terminando em 24 e 25/11).
+- [ ] Opcional: fontes oficiais (TCE-TO, TJTO, UFT, IFTO, UFG) e Diários Oficiais de TO e GO em PDF.
+- [ ] Opcional: retificação de um concurso já enviado chega como item novo (o link do PCI muda). Fica como aviso de mudança no edital.
 
 ---
 

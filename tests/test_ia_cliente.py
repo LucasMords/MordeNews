@@ -1,5 +1,6 @@
 import json
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -162,10 +163,16 @@ def test_esquema_restringe_tags_e_exige_campos() -> None:
     assert set(item["required"]) == {"id", "nota", "resumo", "tags", "descartar", "prazo"}
 
 
-def test_modulo_sem_prompt_da_erro_claro() -> None:
+def test_modulo_sem_prompt_da_erro_claro(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (tmp_path / "noticias.md").write_text("prompt", encoding="utf-8")
+    monkeypatch.setattr(cliente, "PASTA_PROMPTS", tmp_path)
     with pytest.raises(config.ErroConfiguracao, match="concursos"):
         cliente.carregar_prompt("concursos")
-    assert cliente.modulos_com_prompt() == ["noticias", "estagios"]
+    assert cliente.modulos_com_prompt() == ["noticias"]
+
+
+def test_todos_os_modulos_tem_prompt() -> None:
+    assert cliente.modulos_com_prompt() == ["noticias", "estagios", "concursos"]
 
 
 # ----------------------------------------------------------------- retentativas

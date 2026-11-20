@@ -31,3 +31,6 @@ web/.vercel/
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Prévia local do e-mail (radar resumo --simular --salvar previa.html)
+previa*.html

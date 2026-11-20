@@ -13,7 +13,7 @@ from radar import banco, config
 from radar.coletores.base import executar
 from radar.coletores.http import ClienteHttp
 from radar.coletores.registro import filtrar_fontes, montar_coletores
-from radar.entrega import correio, resumo
+from radar.entrega import alertas, correio, resumo
 from radar.ia import cliente as ia_cliente
 from radar.ia import triagem
 from radar.modelos import Item
@@ -171,6 +171,19 @@ def comando_resumo(args: argparse.Namespace) -> int:
     return 0
 
 
+def comando_alertas_prazo(args: argparse.Namespace) -> int:
+    """Avisa por e-mail as inscrições que terminam em até 3 dias (ou só mostra, com --simular)."""
+    config.carregar().exigir_supabase()
+    resultado = alertas.enviar_alertas(simular=args.simular)
+    if args.simular:
+        if resultado.mensagem:
+            print(f"Assunto: {resultado.mensagem.assunto}\n")
+            print(resultado.mensagem.texto)
+        else:
+            print("Nenhum prazo terminando nos próximos 3 dias.")
+    return 0
+
+
 def _montar_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="radar", description="Radar pessoal de informação.")
     sub = parser.add_subparsers(dest="comando", required=True)
@@ -217,6 +230,12 @@ def _montar_parser() -> argparse.ArgumentParser:
         help="execução de reserva: só envia se o resumo de hoje ainda não deu certo",
     )
     resumo_cmd.set_defaults(funcao=comando_resumo)
+
+    alerta_cmd = sub.add_parser(
+        "alertas-prazo", help="avisa por e-mail as inscrições que terminam em até 3 dias"
+    )
+    alerta_cmd.add_argument("--simular", action="store_true", help="mostra o alerta, sem enviar")
+    alerta_cmd.set_defaults(funcao=comando_alertas_prazo)
 
     teste = sub.add_parser("teste-banco", help="grava e lê um item de teste no Supabase")
     teste.add_argument("--manter", action="store_true", help="não apaga o item de teste ao final")

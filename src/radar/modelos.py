@@ -88,7 +88,9 @@ class Item(BaseModel):
         return self.model_dump(mode="json")
 
 
-TipoFonte = Literal["rss", "github", "iel"]  # pdf entra no bloco 5
+# rss-pagina: feed RSS que traz só um trecho; o coletor abre o artigo dos itens novos.
+# pci: lista de concursos abertos do PCI Concursos, filtrada pelas UFs da fonte.
+TipoFonte = Literal["rss", "github", "iel", "rss-pagina", "pci"]
 
 
 class Fonte(BaseModel):
@@ -102,6 +104,12 @@ class Fonte(BaseModel):
     url: str = Field(pattern=r"^https?://")
     janela_horas: int = Field(default=72, gt=0)
     limite: int = Field(default=50, gt=0, le=50)
+    ufs: list[str] = Field(default_factory=list)  # só para `pci`: siglas, ex.: ["TO", "GO"]
+
+    @field_validator("ufs")
+    @classmethod
+    def _ufs_maiusculas(cls, ufs: list[str]) -> list[str]:
+        return [uf.strip().upper() for uf in ufs if uf.strip()]
 
 
 class ItemPendente(BaseModel):
@@ -130,6 +138,7 @@ class ItemResumo(BaseModel):
     tags: list[str] = Field(default_factory=list)
     prazo: date | None = None
     campos: dict[str, Any] = Field(default_factory=dict)
+    salvo: bool = False
 
     @field_validator("tags", "campos", mode="before")
     @classmethod
@@ -165,6 +174,60 @@ class CamposEstagio(BaseModel):
         return valor or []
 
     @field_validator("link_inscricao")
+    @classmethod
+    def _link_http(cls, valor: str | None) -> str | None:
+        return valor if valor and valor.startswith(("http://", "https://")) else None
+
+
+def _nulo_se_vazio(valor: object) -> object:
+    if isinstance(valor, str) and valor.strip().lower() in ("", "null", "none", "n/a"):
+        return None
+    return valor
+
+
+class CamposConcurso(BaseModel):
+    """Campos extraídos de um concurso ou edital. O que não está no texto fica nulo."""
+
+    model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
+
+    orgao: str | None = None
+    cargos: list[str] = Field(default_factory=list, max_length=15)
+    escolaridade: str | None = None
+    salario_max: str | None = None  # como aparece no texto, ex.: "R$ 4.508,28"
+    vagas: int | None = None
+    data_prova: date | None = None
+    link_edital: str | None = None
+
+    @field_validator("orgao", "escolaridade", "salario_max", "link_edital", mode="before")
+    @classmethod
+    def _vazio_vira_nulo(cls, valor: object) -> object:
+        return _nulo_se_vazio(valor)
+
+    @field_validator("cargos", mode="before")
+    @classmethod
+    def _cargos_nulos(cls, valor: object) -> object:
+        return list(valor)[:15] if valor else []
+
+    @field_validator("vagas", mode="before")
+    @classmethod
+    def _vagas(cls, valor: object) -> object:
+        if isinstance(valor, str):
+            digitos = "".join(c for c in valor if c.isdigit())
+            return int(digitos) if digitos else None
+        return valor
+
+    @field_validator("data_prova", mode="before")
+    @classmethod
+    def _data_invalida(cls, valor: object) -> object:
+        valor = _nulo_se_vazio(valor)
+        if isinstance(valor, str):
+            try:
+                return date.fromisoformat(valor.strip())
+            except ValueError:
+                return None  # data fora do formato ISO não derruba o item
+        return valor
+
+    @field_validator("link_edital")
     @classmethod
     def _link_http(cls, valor: str | None) -> str | None:
         return valor if valor and valor.startswith(("http://", "https://")) else None

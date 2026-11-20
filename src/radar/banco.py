@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 import httpx
@@ -237,6 +237,23 @@ def para_resumo(
         params["modulo"] = f"in.({','.join(modulos)})"
     linhas = _requisitar("GET", "/itens", params=params)
     return [ItemResumo.model_validate(linha) for linha in linhas or []]
+
+
+def com_prazo(inicio: date, fim: date, limite: int = 500) -> list[ItemResumo]:
+    """Itens processados (enviados ou não) com prazo entre `inicio` e `fim`, do mais próximo."""
+    linhas = _requisitar(
+        "GET",
+        "/itens",
+        params={
+            "select": "id,modulo,fonte,titulo,url,publicado_em,nota,resumo,tags,prazo,campos,salvo",
+            "status": "eq.processado",
+            "prazo": f"gte.{inicio.isoformat()}",
+            "order": "prazo.asc,id.asc",
+            "limit": str(limite),
+        },
+    )
+    itens = [ItemResumo.model_validate(linha) for linha in linhas or []]
+    return [i for i in itens if i.prazo is not None and i.prazo <= fim]
 
 
 def marcar_enviados(ids: Sequence[int]) -> None:

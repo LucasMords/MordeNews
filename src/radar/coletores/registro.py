@@ -6,15 +6,17 @@ from collections.abc import Iterable
 
 from radar.coletores.base import Coletor
 from radar.coletores.github import ColetorGitHub
-from radar.coletores.html import ColetorIEL
+from radar.coletores.html import ColetorIEL, ColetorPCI
 from radar.coletores.http import ClienteHttp
-from radar.coletores.rss import ColetorRSS
+from radar.coletores.rss import ColetorRSS, ColetorRSSPagina
 from radar.modelos import Fonte
 
 TIPOS: dict[str, type[Coletor]] = {
     "rss": ColetorRSS,
     "github": ColetorGitHub,
     "iel": ColetorIEL,
+    "rss-pagina": ColetorRSSPagina,
+    "pci": ColetorPCI,
 }
 
 
