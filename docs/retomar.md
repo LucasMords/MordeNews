@@ -17,7 +17,9 @@ O **MVP está pronto e rodando sozinho**, agora também com **vagas de estágio*
 | 3 — Resumo diário **por e-mail** (substituiu o Telegram) | ✅ concluído, e-mail recebido na caixa de entrada | 2026-11-19 |
 | 4 — Vagas de estágio (GitHub, Programathor, IEL TO) | ✅ concluído, e-mail com vagas confirmado | 2026-11-20 |
 | 5 — Editais de concurso (Concursos no Brasil, PCI) | 🟡 pronto, aguardando validação | — |
-| 6 a 9 | ⏳ não iniciados | — |
+| 6 — Portal web (Next.js em `web/`) | 🟡 pronto localmente, falta configurar Supabase e Vercel | — |
+| 7 e 8 | ⏳ não iniciados | — |
+| 9 — Monitoramento (`radar monitorar`, `radar limpar`, `manutencao.yml`) | 🟡 pronto, `manutencao` validado via `workflow_dispatch` | 2026-11-21 |
 
 ### Rotina automática (GitHub Actions, repositório público `LucasMords/MordeNews`)
 
@@ -40,6 +42,7 @@ O repositório é público, então estes dois arquivos ficam de fora de propósi
 |---|---|---|
 | `.env` | Chaves do Supabase e do Gemini, e-mail e senha de app | Pen drive, gerenciador de senhas ou cópia manual. **Nunca** por commit, chat ou e-mail sem proteção |
 | `config/perfil.md` | Perfil de interesses usado pela triagem | Mesma forma. Atenção: o GitHub **não deixa ler** o valor de um secret depois de salvo, então o `PERFIL_MD` não serve de backup |
+| `web/.env.local` | URL e chave pública do Supabase para rodar o portal localmente | Mesma forma, ou copie de novo do painel do Supabase (é a chave pública, mas não precisa ficar no git) |
 
 Se perder o `.env`, dá para recriar a partir do `.env.example`, gerando chaves novas no Supabase, no Google AI Studio e nas senhas de app do Google.
 
@@ -49,6 +52,7 @@ Se perder o `.env`, dá para recriar a partir do `.env.example`, gerando chaves 
 # 1. Ferramentas
 winget install --id astral-sh.uv -e        # abra um terminal novo depois
 winget install --id Git.Git -e             # se ainda não tiver o git
+winget install --id OpenJS.NodeJS.LTS -e  # só para o portal (web/)
 uv python install 3.12
 
 # 2. Código

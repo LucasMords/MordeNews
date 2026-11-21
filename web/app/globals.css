@@ -1,0 +1,289 @@
+/* Mesma paleta do e-mail: discreta, legível no celular e no claro/escuro do sistema. */
+:root {
+  --fundo: #f9fafb;
+  --cartao: #ffffff;
+  --texto: #344054;
+  --forte: #101828;
+  --discreto: #667085;
+  --borda: #eaecf0;
+  --link: #1849a9;
+  --alerta: #b42318;
+  --alta: #067647;
+  --media: #b54708;
+  --baixa: #667085;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fundo: #0c111d;
+    --cartao: #161b26;
+    --texto: #cecfd2;
+    --forte: #f5f5f6;
+    --discreto: #94969c;
+    --borda: #1f242f;
+    --link: #84adff;
+    --alerta: #f97066;
+    --alta: #47cd89;
+    --media: #fdb022;
+    --baixa: #94969c;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+a {
+  color: var(--link);
+}
+
+h1 {
+  color: var(--forte);
+  font-size: 22px;
+  margin: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: var(--cartao);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+input[type="search"],
+input[type="email"],
+input[type="password"],
+select {
+  background: var(--cartao);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+code {
+  font-size: 13px;
+}
+
+.discreto {
+  color: var(--discreto);
+}
+
+button.discreto {
+  border: none;
+  background: none;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.erro {
+  color: var(--alerta);
+}
+
+/* topo, abas e filtros */
+.topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.abas {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--borda);
+  margin-bottom: 12px;
+}
+
+.abas a {
+  padding: 8px 12px;
+  text-decoration: none;
+  color: var(--discreto);
+  border-bottom: 2px solid transparent;
+}
+
+.abas a[aria-current="page"] {
+  color: var(--forte);
+  font-weight: bold;
+  border-bottom-color: var(--link);
+}
+
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.filtros input[type="search"] {
+  flex: 1 1 220px;
+}
+
+.caixa {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.resumo-lista {
+  display: flex;
+  justify-content: space-between;
+  color: var(--discreto);
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.vazio {
+  padding: 24px 0;
+  text-align: center;
+}
+
+/* cartões */
+.item {
+  background: var(--cartao);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 8px 0;
+}
+
+.item.lido {
+  opacity: 0.65;
+}
+
+.item header {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.item h3 {
+  font-size: 16px;
+  margin: 0;
+  color: var(--forte);
+}
+
+.item h3 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.item h3 a:hover {
+  text-decoration: underline;
+}
+
+.item p {
+  margin: 4px 0;
+}
+
+.nota {
+  font-weight: bold;
+  min-width: 1.5em;
+  text-align: center;
+}
+
+.nota.alta {
+  color: var(--alta);
+}
+
+.nota.media {
+  color: var(--media);
+}
+
+.nota.baixa {
+  color: var(--baixa);
+}
+
+.meta,
+.dados {
+  color: var(--discreto);
+  font-size: 13px;
+}
+
+.prazo {
+  font-size: 13px;
+}
+
+.prazo.urgente {
+  color: var(--alerta);
+  font-weight: bold;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tags span {
+  font-size: 12px;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  padding: 0 8px;
+  color: var(--discreto);
+}
+
+.item footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.paginacao {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 16px 0;
+  color: var(--discreto);
+}
+
+/* login */
+.login {
+  max-width: 360px;
+  padding-top: 15vh;
+}
+
+.formulario-login {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.formulario-login label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

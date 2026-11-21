@@ -10,9 +10,87 @@
 - **Bloco 3 — Resumo diário por e-mail:** concluído (2026-11-19). **Fim do MVP.** 1º envio local: 30 assuntos (45 itens). O usuário confirmou que chegou na caixa de entrada, fora do spam. Depois, via `workflow_dispatch` no GitHub: 31 itens novos, sem repetir nenhum do 1º envio (76 itens distintos marcados). 
 - **Bloco 4 — Vagas de estágio:** concluído (2026-11-20). 12 fontes de vagas. Via `workflow_dispatch` no GitHub: coleta de 22/22 fontes, triagem e e-mail "MordeNews 20/11: 41 itens" (30 assuntos de notícias + 11 entradas de vagas). O usuário confirmou que o e-mail chegou com a seção Estágios (empresa, local e bolsa). Coleta, triagem e resumo agora rodam no mesmo job, às 08:02 BRT, com reserva às 15:04.
 - **Bloco 5 — Editais de concurso:** pronto localmente (2026-11-20), aguardando validação do usuário. 3 fontes (Concursos no Brasil TO e GO, PCI filtrado por TO e GO), 26 concursos triados com dados reais, seção Concursos no e-mail (sem nota, por prazo) e o comando `radar alertas-prazo`. Rodado via `workflow_dispatch` em 2026-11-20: coleta ok (25 fontes), e-mail enviado com a seção Concursos; a triagem pegou 503 do Gemini e o job ficou vermelho. Ajuste: 5xx persistente agora interrompe a triagem como o 429 (aviso no log, pendentes para a próxima, workflow não falha). Em 2026-11-21 o usuário considerou o alerta de prazo "meio dispensável por enquanto": ver o primeiro alerta real chegar deixou de ser requisito. **Falta:** o usuário validar a seção Concursos do e-mail.
-- **Bloco 9 — Monitoramento:** pronto localmente (2026-11-21), aguardando validação do usuário. `radar monitorar` (fonte falhando 2 vezes seguidas ou há 3 dias sem itens novos), `radar limpar` (apaga o texto bruto depois de 90 dias) e o workflow mensal `manutencao`, que mantém os crons ativos.
+- **Bloco 6 — Portal web:** funcionando localmente com o Supabase real (2026-11-21): migração 002 aplicada, login ok. **Falta:** publicar na Vercel (passo 7) e validar lá.
+- **Bloco 9 — Monitoramento:** pronto localmente (2026-11-21), aguardando validação do usuário. O `manutencao` rodou via `workflow_dispatch` em 2026-11-21, e o bot fez o commit `c95ad1c`. `radar monitorar` (fonte falhando 2 vezes seguidas ou há 3 dias sem itens novos), `radar limpar` (apaga o texto bruto depois de 90 dias) e o workflow mensal `manutencao`, que mantém os crons ativos.
 - Crons: em 2026-11-19 o `coletar` rodou com ~9h de atraso, e o `resumo-diario` nunca disparou pelo cron. Resolvido juntando coleta, triagem e resumo em um job às 08:02, com reserva às 15:04. Em 2026-11-20 a reserva rodou com ~5h40 de atraso e deu certo. Em 2026-11-21, às 10h BRT, o das 08:02 ainda não tinha disparado. O usuário aceita o atraso: se um dia não rodar, o seguinte compensa (a coleta olha as últimas 72h de cada fonte). Sem serviço externo de cron.
 - **Manutenção automática:** última em 2026-11-21 (workflow `manutencao`, todo dia 1).
+
+---
+
+## Bloco 6 — Portal web (2026-11-21)
+
+### Decisões do usuário
+
+- Login com **e-mail e senha**. A conta é criada à mão no painel do Supabase, e o cadastro público fica desligado.
+- Node.js 26 LTS instalado pelo winget para rodar o portal localmente.
+
+### O que foi feito
+
+- **`web/`**: Next.js 16 (App Router) + TypeScript, `@supabase/ssr` para a sessão nos cookies.
+  - `proxy.ts` (o antigo `middleware` do Next 16): renova a sessão e manda para `/login` quem não está logado.
+  - `/login`: e-mail e senha. O erro é genérico e não revela se o e-mail existe.
+  - `/`: feed por módulo (abas Notícias, Estágios e Concursos), 30 itens por página. Filtros na URL, que funcionam sem JavaScript: busca no título e no resumo, não lidos ou salvos, nota mínima, ordem das notícias (mais recentes ou maior nota) e, em vagas e concursos, "incluir encerrados".
+    - Notícias: pela data de coleta ou pela nota.
+    - Vagas e concursos: pelo prazo mais próximo; os encerrados ficam ocultos.
+    - Concursos não mostram nota (mesma regra do e-mail).
+  - Em cada item: título com link para a fonte, fonte, data, dados (empresa/bolsa ou órgão/vagas/salário), prazo (vermelho se faltam até 3 dias), resumo, tags, link de inscrição ou edital e os botões **Marcar lido** e **Salvar**. Também há "Marcar página como lida".
+  - Server Actions (`app/acoes.ts`) mudam só `lido` e `salvo`. Os itens com `salvo` passam a entrar no alerta de prazo e são poupados pela limpeza mensal.
+  - Segurança: o portal recusa a service role key (só aceita a chave pública). Os links só aparecem se forem `http(s)`, a busca é limpa antes de ir para o filtro do PostgREST e as páginas mandam `noindex`, `X-Frame-Options: DENY` e `no-referrer`.
+- **`db/migrations/002_portal.sql`**:
+  - Tabela `usuarios_portal` e a função `e_usuario_portal()`.
+  - Políticas RLS: a conta autorizada lê `itens` e muda só `lido` e `salvo` (`grant update (lido, salvo)`). A chave pública sem login (`anon`) não acessa nada.
+  - Os scripts Python não mudam: continuam com a service role key.
+  - O seu e-mail **não** entra no repositório: a autorização é por `user_id`, inserido à mão.
+- `testes.yml`: novo job `portal` (`npm ci`, `npm test`, `npm run build`). `web/vercel.json` faz a Vercel pular o build quando o commit não mexe em `web/` (ex.: o commit mensal do bot).
+
+### Dependências novas (portal)
+
+| Dependência | Motivo |
+|---|---|
+| `next`, `react`, `react-dom` | Stack do bloco 6 definida no `CLAUDE.md` |
+| `@supabase/supabase-js`, `@supabase/ssr` | Cliente oficial do Supabase e sessão do login nos cookies do Next |
+| `typescript`, `@types/*` (dev) | TypeScript, como pede o `CLAUDE.md` |
+| `vitest` (dev) | Testes das funções do portal (filtros, datas, prazos e links), sem rede |
+
+Sem Tailwind nem biblioteca de componentes: o CSS é um arquivo só (`app/globals.css`), com claro/escuro automático.
+
+### O que falta você fazer (uma vez)
+
+1. **Supabase → SQL Editor:** rode `db/migrations/002_portal.sql`.
+2. **Supabase → Authentication → Users → Add user → Create new user:** seu e-mail e uma senha forte, com **Auto Confirm User** marcado.
+3. **Supabase → SQL Editor:** autorize a conta (troque o e-mail):
+   ```sql
+   insert into public.usuarios_portal (user_id)
+   select id from auth.users where email = 'SEU_EMAIL_AQUI';
+   ```
+4. **Supabase → Authentication → Sign In / Providers:** desligue **Allow new users to sign up**.
+5. **Supabase → Project Settings → API Keys:** copie a URL e a chave **publishable** (ou a `anon`, se o projeto usar as chaves antigas). Nunca a `secret`/`service_role`.
+6. **Teste local:** crie `web/.env.local` a partir de `web/.env.example` e rode:
+   ```powershell
+   cd web ; npm install ; npm run dev   # abre em http://localhost:3000
+   ```
+7. **Vercel:** em vercel.com → **Add New → Project**, importe `LucasMords/MordeNews`, com **Root Directory = `web`** e as duas variáveis `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. O plano Hobby é gratuito.
+
+### Como testar
+
+```powershell
+cd web
+npm test            # vitest: filtros, datas, prazos, links
+npm run build       # compila e checa os tipos
+```
+
+No navegador: entrar, trocar de aba, buscar, filtrar por nota e por não lidos, salvar um item e conferir em "Salvos", marcar lido e ver o item esmaecer. Sair e conferir que `/` volta para o login. Numa aba anônima, conferir que `/` sem login vai para `/login`.
+
+### Validação até agora
+
+- `npm test`: 17 testes passam. `npm run build` passa. `ruff` e `pytest` continuam passando.
+- Com o servidor de produção local (`next start`): `/` sem sessão responde 307 para `/login`, e `/login` responde 200 com `X-Robots-Tag: noindex` e `X-Frame-Options: DENY`.
+- Com o Supabase real, em 2026-11-21: o usuário seguiu os passos 1 a 6 e entrou no portal local (`npm run dev`). "Entrei, funcionou."
+
+### Pendências
+
+- [ ] Você seguir os passos 1 a 7 e validar no navegador e no celular.
+- [ ] Bloco 7: os botões 👍/👎 entram no cartão do item. A política de `insert` em `feedback` fica para a migração do bloco 7.
 
 ---
 
@@ -49,7 +127,7 @@ gh workflow run manutencao         # testa o commit mensal (depois: git pull)
 
 ### Pendências
 
-- [ ] Rodar o `manutencao` via `workflow_dispatch` e conferir o commit do bot.
+- [x] Rodar o `manutencao` via `workflow_dispatch` e conferir o commit do bot (2026-11-21, commit `c95ad1c`).
 - [ ] Ver o 1º alerta real do monitor. Fontes calmas (ex.: `gh-qa-brasil`, `iel-tocantins`) podem cair em "sem itens novos". Se isso incomodar, decidir se essas fontes ganham um limite maior de dias.
 - [ ] Limitação: se o GitHub não rodar nenhum workflow, o monitor também não roda e não há quem avise.
 - [ ] Depois do commit mensal do bot, dê `git pull` antes de trabalhar localmente.

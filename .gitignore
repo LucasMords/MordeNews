@@ -27,6 +27,8 @@ config/perfil.md
 web/node_modules/
 web/.next/
 web/.vercel/
+web/next-env.d.ts
+web/*.tsbuildinfo
 
 # Sistema
 .DS_Store
