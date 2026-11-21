@@ -11,18 +11,18 @@ export function FormularioLogin() {
     <form action={acao} className="formulario-login">
       <label>
         E-mail
-        <input name="email" type="email" autoComplete="username" required />
+        <input name="email" type="email" autoComplete="username" placeholder="voce@exemplo.com" required />
       </label>
       <label>
         Senha
-        <input name="senha" type="password" autoComplete="current-password" required />
+        <input name="senha" type="password" autoComplete="current-password" placeholder="••••••••" required />
       </label>
       {estado.erro && (
         <p className="erro" role="alert">
           {estado.erro}
         </p>
       )}
-      <button type="submit" disabled={enviando}>
+      <button type="submit" className="botao-primario" disabled={enviando}>
         {enviando ? "Entrando…" : "Entrar"}
       </button>
     </form>

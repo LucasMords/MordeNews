@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  agruparPor,
+  dataPorExtenso,
   formatarData,
   hojeBrasilia,
   linhaDados,
   linkExtra,
   linkSeguro,
   prazoUrgente,
+  rotuloDia,
   textoPrazo,
 } from "@/lib/formato";
 
@@ -31,6 +34,30 @@ describe("datas", () => {
     expect(prazoUrgente("2026-11-24", hoje)).toBe(true);
     expect(prazoUrgente("2026-11-25", hoje)).toBe(false);
     expect(prazoUrgente("2026-11-20", hoje)).toBe(false);
+  });
+});
+
+describe("grupos por dia", () => {
+  const hoje = "2026-11-21";
+
+  it("rotula hoje, ontem e dias anteriores no fuso de Brasília", () => {
+    expect(rotuloDia("2026-11-21T12:00:00Z", hoje)).toBe("Hoje");
+    expect(rotuloDia("2026-11-21T02:00:00Z", hoje)).toBe("Ontem"); // 23h do dia 20 em Brasília
+    expect(rotuloDia("2026-11-19T12:00:00Z", hoje)).toBe("quinta-feira, 19 de novembro");
+    expect(rotuloDia("lixo", hoje)).toBe("Sem data");
+  });
+
+  it("agrupa itens seguidos com o mesmo rótulo", () => {
+    const grupos = agruparPor(["a1", "a2", "b1", "a3"], (s) => s[0]);
+    expect(grupos).toEqual([
+      { rotulo: "a", itens: ["a1", "a2"] },
+      { rotulo: "b", itens: ["b1"] },
+      { rotulo: "a", itens: ["a3"] },
+    ]);
+  });
+
+  it("escreve a data por extenso", () => {
+    expect(dataPorExtenso(new Date("2026-11-21T12:00:00Z"))).toBe("sábado, 21 de novembro");
   });
 });
 

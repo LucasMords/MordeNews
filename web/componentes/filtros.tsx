@@ -1,81 +1,96 @@
 import Link from "next/link";
-import { type Filtros, ordenaPorPrazo, urlFeed } from "@/lib/filtros";
-import { MODULOS, TITULOS_MODULO } from "@/lib/tipos";
+import { IconeTag } from "@/componentes/icones";
+import { type Estado, type Filtros, ordenaPorPrazo, urlFeed } from "@/lib/filtros";
 
-/** Abas por módulo. Trocar de aba mantém a busca e volta para a página 1. */
-export function Abas({ filtros }: { filtros: Filtros }) {
-  return (
-    <nav className="abas" aria-label="Módulos">
-      {MODULOS.map((modulo) => (
-        <Link
-          key={modulo}
-          href={urlFeed(filtros, { modulo, pagina: 1, encerrados: false })}
-          aria-current={modulo === filtros.modulo ? "page" : undefined}
-        >
-          {TITULOS_MODULO[modulo]}
-        </Link>
-      ))}
-    </nav>
-  );
-}
+const ESTADOS: { valor: Estado; rotulo: string }[] = [
+  { valor: "todos", rotulo: "Todos" },
+  { valor: "nao-lidos", rotulo: "Não lidos" },
+  { valor: "salvos", rotulo: "Salvos" },
+];
 
-/** Formulário GET: os filtros ficam na URL e funcionam sem JavaScript. */
+/** Filtros da seção. Tudo fica na URL e funciona sem JavaScript. */
 export function BarraFiltros({ filtros }: { filtros: Filtros }) {
   const porPrazo = ordenaPorPrazo(filtros.modulo);
   return (
-    <form className="filtros" method="get" action="/">
-      {filtros.modulo !== "noticias" && (
-        <input type="hidden" name="modulo" value={filtros.modulo} />
-      )}
-      <input
-        type="search"
-        name="q"
-        defaultValue={filtros.busca}
-        placeholder="Buscar no título e no resumo"
-        aria-label="Buscar"
-      />
-      <select name="ver" defaultValue={filtros.estado} aria-label="Quais itens">
-        <option value="todos">Todos</option>
-        <option value="nao-lidos">Não lidos</option>
-        <option value="salvos">Salvos</option>
-      </select>
-      <select name="nota" defaultValue={String(filtros.notaMinima)} aria-label="Nota mínima">
-        <option value="0">Qualquer nota</option>
-        {[5, 6, 7, 8, 9].map((nota) => (
-          <option key={nota} value={nota}>
-            Nota ≥ {nota}
-          </option>
+    <div className="barra-filtros">
+      <nav className="segmentos" aria-label="Quais itens">
+        {ESTADOS.map(({ valor, rotulo }) => (
+          <Link
+            key={valor}
+            href={urlFeed(filtros, { estado: valor, pagina: 1 })}
+            aria-current={filtros.estado === valor ? "true" : undefined}
+          >
+            {rotulo}
+          </Link>
         ))}
-      </select>
-      {porPrazo ? (
-        <label className="caixa">
-          <input type="checkbox" name="encerrados" value="1" defaultChecked={filtros.encerrados} />
-          Incluir encerrados
-        </label>
-      ) : (
-        <select name="ordem" defaultValue={filtros.ordem} aria-label="Ordem">
-          <option value="recentes">Mais recentes</option>
-          <option value="nota">Maior nota</option>
-        </select>
+      </nav>
+
+      {filtros.tag && (
+        <Link className="chip chip-filtro" href={urlFeed(filtros, { tag: "", pagina: 1 })} title="Tirar o filtro de tag">
+          <IconeTag width={14} height={14} />
+          {filtros.tag} ✕
+        </Link>
       )}
-      <button type="submit">Filtrar</button>
-    </form>
+      {filtros.busca && (
+        <Link className="chip chip-filtro" href={urlFeed(filtros, { busca: "", pagina: 1 })} title="Limpar a busca">
+          “{filtros.busca}” ✕
+        </Link>
+      )}
+
+      <form className="filtros" method="get" action="/">
+        <input type="hidden" name="modulo" value={filtros.modulo} />
+        {filtros.estado !== "todos" && <input type="hidden" name="ver" value={filtros.estado} />}
+        {filtros.busca && <input type="hidden" name="q" value={filtros.busca} />}
+        {filtros.tag && <input type="hidden" name="tag" value={filtros.tag} />}
+        <select name="nota" defaultValue={String(filtros.notaMinima)} aria-label="Nota mínima">
+          <option value="0">Qualquer nota</option>
+          {[5, 6, 7, 8, 9].map((nota) => (
+            <option key={nota} value={nota}>
+              Nota ≥ {nota}
+            </option>
+          ))}
+        </select>
+        {porPrazo ? (
+          <label className="caixa">
+            <input type="checkbox" name="encerrados" value="1" defaultChecked={filtros.encerrados} />
+            Encerrados
+          </label>
+        ) : (
+          <select name="ordem" defaultValue={filtros.ordem} aria-label="Ordem">
+            <option value="recentes">Mais recentes</option>
+            <option value="nota">Maior nota</option>
+          </select>
+        )}
+        <button type="submit" className="botao-primario">
+          Filtrar
+        </button>
+      </form>
+    </div>
   );
 }
 
 export function Paginacao({ filtros, total, porPagina }: { filtros: Filtros; total: number; porPagina: number }) {
   const paginas = Math.max(1, Math.ceil(total / porPagina));
   if (paginas <= 1) return null;
+  const atual = Math.min(filtros.pagina, paginas);
   return (
     <nav className="paginacao" aria-label="Páginas">
-      {filtros.pagina > 1 && (
-        <Link href={urlFeed(filtros, { pagina: filtros.pagina - 1 })}>← Anteriores</Link>
+      {atual > 1 ? (
+        <Link className="botao-fantasma" href={urlFeed(filtros, { pagina: atual - 1 })}>
+          ← Anteriores
+        </Link>
+      ) : (
+        <span />
       )}
-      <span>
-        Página {Math.min(filtros.pagina, paginas)} de {paginas}
+      <span className="discreto">
+        Página {atual} de {paginas}
       </span>
-      {filtros.pagina < paginas && (
-        <Link href={urlFeed(filtros, { pagina: filtros.pagina + 1 })}>Próximos →</Link>
+      {atual < paginas ? (
+        <Link className="botao-fantasma" href={urlFeed(filtros, { pagina: atual + 1 })}>
+          Próximos →
+        </Link>
+      ) : (
+        <span />
       )}
     </nav>
   );

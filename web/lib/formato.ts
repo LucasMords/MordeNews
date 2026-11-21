@@ -20,6 +20,39 @@ export function formatarData(valor: string | null): string {
   return new Intl.DateTimeFormat("pt-BR", { timeZone: FUSO }).format(data);
 }
 
+/** "sábado, 21 de novembro" no fuso de Brasília. */
+export function dataPorExtenso(agora: Date = new Date()): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: FUSO,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(agora);
+}
+
+/** Título do grupo de um dia no feed: "Hoje", "Ontem" ou "quinta-feira, 19 de novembro". */
+export function rotuloDia(timestamp: string, hoje: string): string {
+  const data = new Date(timestamp);
+  if (Number.isNaN(data.getTime())) return "Sem data";
+  const dia = hojeBrasilia(data);
+  const diferenca = diasEntre(dia, hoje);
+  if (diferenca === 0) return "Hoje";
+  if (diferenca === 1) return "Ontem";
+  return dataPorExtenso(data);
+}
+
+/** Agrupa itens consecutivos com o mesmo rótulo, mantendo a ordem. */
+export function agruparPor<T>(itens: T[], rotulo: (item: T) => string): { rotulo: string; itens: T[] }[] {
+  const grupos: { rotulo: string; itens: T[] }[] = [];
+  for (const item of itens) {
+    const nome = rotulo(item);
+    const ultimo = grupos.at(-1);
+    if (ultimo && ultimo.rotulo === nome) ultimo.itens.push(item);
+    else grupos.push({ rotulo: nome, itens: [item] });
+  }
+  return grupos;
+}
+
 function diasEntre(de: string, ate: string): number {
   return Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86_400_000);
 }

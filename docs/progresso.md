@@ -10,7 +10,7 @@
 - **Bloco 3 — Resumo diário por e-mail:** concluído (2026-11-19). **Fim do MVP.** 1º envio local: 30 assuntos (45 itens). O usuário confirmou que chegou na caixa de entrada, fora do spam. Depois, via `workflow_dispatch` no GitHub: 31 itens novos, sem repetir nenhum do 1º envio (76 itens distintos marcados). 
 - **Bloco 4 — Vagas de estágio:** concluído (2026-11-20). 12 fontes de vagas. Via `workflow_dispatch` no GitHub: coleta de 22/22 fontes, triagem e e-mail "MordeNews 20/11: 41 itens" (30 assuntos de notícias + 11 entradas de vagas). O usuário confirmou que o e-mail chegou com a seção Estágios (empresa, local e bolsa). Coleta, triagem e resumo agora rodam no mesmo job, às 08:02 BRT, com reserva às 15:04.
 - **Bloco 5 — Editais de concurso:** pronto localmente (2026-11-20), aguardando validação do usuário. 3 fontes (Concursos no Brasil TO e GO, PCI filtrado por TO e GO), 26 concursos triados com dados reais, seção Concursos no e-mail (sem nota, por prazo) e o comando `radar alertas-prazo`. Rodado via `workflow_dispatch` em 2026-11-20: coleta ok (25 fontes), e-mail enviado com a seção Concursos; a triagem pegou 503 do Gemini e o job ficou vermelho. Ajuste: 5xx persistente agora interrompe a triagem como o 429 (aviso no log, pendentes para a próxima, workflow não falha). Em 2026-11-21 o usuário considerou o alerta de prazo "meio dispensável por enquanto": ver o primeiro alerta real chegar deixou de ser requisito. **Falta:** o usuário validar a seção Concursos do e-mail.
-- **Bloco 6 — Portal web:** funcionando localmente com o Supabase real (2026-11-21): migração 002 aplicada, login ok. **Falta:** publicar na Vercel (passo 7) e validar lá.
+- **Bloco 6 — Portal web:** funcionando localmente com o Supabase real (2026-11-21): migração 002 aplicada, login ok. Visual refeito no estilo do mockup do usuário, e botões e navegação mais rápidos. **Falta:** publicar na Vercel (passo 7) e validar lá.
 - **Bloco 9 — Monitoramento:** pronto localmente (2026-11-21), aguardando validação do usuário. O `manutencao` rodou via `workflow_dispatch` em 2026-11-21, e o bot fez o commit `c95ad1c`. `radar monitorar` (fonte falhando 2 vezes seguidas ou há 3 dias sem itens novos), `radar limpar` (apaga o texto bruto depois de 90 dias) e o workflow mensal `manutencao`, que mantém os crons ativos.
 - Crons: em 2026-11-19 o `coletar` rodou com ~9h de atraso, e o `resumo-diario` nunca disparou pelo cron. Resolvido juntando coleta, triagem e resumo em um job às 08:02, com reserva às 15:04. Em 2026-11-20 a reserva rodou com ~5h40 de atraso e deu certo. Em 2026-11-21, às 10h BRT, o das 08:02 ainda não tinha disparado. O usuário aceita o atraso: se um dia não rodar, o seguinte compensa (a coleta olha as últimas 72h de cada fonte). Sem serviço externo de cron.
 - **Manutenção automática:** última em 2026-11-21 (workflow `manutencao`, todo dia 1).
@@ -52,7 +52,7 @@
 | `typescript`, `@types/*` (dev) | TypeScript, como pede o `CLAUDE.md` |
 | `vitest` (dev) | Testes das funções do portal (filtros, datas, prazos e links), sem rede |
 
-Sem Tailwind nem biblioteca de componentes: o CSS é um arquivo só (`app/globals.css`), com claro/escuro automático.
+Sem Tailwind nem biblioteca de componentes: o CSS é um arquivo só (`app/globals.css`), com tema escuro e claro.
 
 ### O que falta você fazer (uma vez)
 
@@ -69,7 +69,22 @@ Sem Tailwind nem biblioteca de componentes: o CSS é um arquivo só (`app/global
    ```powershell
    cd web ; npm install ; npm run dev   # abre em http://localhost:3000
    ```
-7. **Vercel:** em vercel.com → **Add New → Project**, importe `LucasMords/MordeNews`, com **Root Directory = `web`** e as duas variáveis `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. O plano Hobby é gratuito.
+7. **Vercel:** em vercel.com → **Add New → Project**, importe `LucasMords/MordeNews`, com **Root Directory = `web`** e as duas variáveis `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (opcional: `NOME_USUARIO`, o nome da saudação). O plano Hobby é gratuito. O `vercel.json` fixa a região `pdx1` (Oregon), a mesma do Supabase.
+
+### Visual (2026-11-21, pedido do usuário a partir de um mockup)
+
+- Tema escuro roxo por padrão, claro opcional (botões sol/lua, salvo em cookie).
+- Menu lateral (Início, Notícias, Estágios, Concursos, Salvos, com contadores) e busca geral no topo, que procura em todos os módulos.
+- **Início** (`/` sem parâmetros): saudação com o nome (`NOME_USUARIO`), cidade à noite em SVG, números de não lidos por módulo, a notícia de maior nota dos últimos 2 dias em destaque e as últimas notícias. As seções usam `/?modulo=…`; os salvos usam `modulo=todos&ver=salvos`. Também há filtro por tag (`tag=`).
+- Coluna lateral com os prazos dos próximos 15 dias e as tags mais comuns da semana.
+- Capas dos cartões: 13 ilustrações genéricas em SVG, escolhidas pelas tags (`lib/temas.ts`). Não há imagens reais das matérias, que continuam fora do escopo.
+- Desempenho:
+  - O login é conferido com `getClaims()`, localmente, pela chave ES256 do projeto, sem ida ao Supabase.
+  - As consultas da página rodam todas em paralelo.
+  - Salvar e marcar lido mudam na hora (`useOptimistic`).
+  - `loading.tsx` mostra um esqueleto da página no clique.
+  - As seções do menu são pré-carregadas.
+  - Localmente cada consulta custa ~650 ms, pela distância até Oregon. Na Vercel em `pdx1`, deve ficar perto de 10 ms.
 
 ### Como testar
 

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { clienteSupabase } from "@/lib/supabase/servidor";
 
@@ -51,4 +52,12 @@ export async function sair(): Promise<void> {
   const supabase = await clienteSupabase();
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+/** Troca entre tema escuro e claro (cookie lido pelo layout; funciona sem JavaScript). */
+export async function trocarTema(formulario: FormData): Promise<void> {
+  const tema = formulario.get("tema") === "claro" ? "claro" : "escuro";
+  const loja = await cookies();
+  loja.set("tema", tema, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax", httpOnly: true });
+  revalidatePath("/", "layout");
 }

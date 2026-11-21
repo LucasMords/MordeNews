@@ -1,18 +1,63 @@
-import { marcarLido, marcarSalvo } from "@/app/acoes";
-import {
-  formatarData,
-  linhaDados,
-  linkExtra,
-  linkSeguro,
-  prazoUrgente,
-  textoPrazo,
-} from "@/lib/formato";
-import type { Item } from "@/lib/tipos";
+import { Capa } from "@/componentes/arte";
+import { CartaoInterativo } from "@/componentes/cartao-interativo";
+import { IconeCalendario, IconeEstrela, IconeExterno, IconeRelogio } from "@/componentes/icones";
+import { filtrosDe, urlFeed } from "@/lib/filtros";
+import { formatarData, linhaDados, linkExtra, linkSeguro, prazoUrgente, textoPrazo } from "@/lib/formato";
+import { type Item, TITULOS_MODULO } from "@/lib/tipos";
 
-function corNota(nota: number): string {
-  if (nota >= 8) return "nota alta";
-  if (nota >= 6) return "nota media";
-  return "nota baixa";
+function faixaNota(nota: number): "alta" | "media" | "baixa" {
+  if (nota >= 8) return "alta";
+  if (nota >= 6) return "media";
+  return "baixa";
+}
+
+/** Pílula do topo do cartão: a primeira tag (link para o filtro) ou o nome do módulo. */
+function Pilula({ item }: { item: Item }) {
+  const tag = item.tags?.[0];
+  if (!tag) return <span className={`pilula pilula-${item.modulo}`}>{TITULOS_MODULO[item.modulo]}</span>;
+  return (
+    <a className={`pilula pilula-${item.modulo}`} href={urlFeed(filtrosDe("todos", { tag }))}>
+      {tag}
+    </a>
+  );
+}
+
+function Meta({ item }: { item: Item }) {
+  const data = formatarData(item.publicado_em ?? item.coletado_em);
+  const mostraNota = item.modulo !== "concursos" && item.nota !== null;
+  return (
+    <p className="cartao-meta">
+      {data && (
+        <span>
+          <IconeCalendario width={16} height={16} />
+          {data}
+        </span>
+      )}
+      <span className="fonte">{item.fonte}</span>
+      {mostraNota && (
+        <span className={`nota nota-${faixaNota(item.nota ?? 0)}`} title={`Nota ${item.nota} de 10`}>
+          <IconeEstrela width={15} height={15} />
+          {item.nota}/10
+        </span>
+      )}
+      <span className="selo-novo">novo</span>
+    </p>
+  );
+}
+
+function Titulo({ item, url, nivel }: { item: Item; url: string | null; nivel: "h2" | "h3" }) {
+  const Tag = nivel;
+  return (
+    <Tag className="cartao-titulo">
+      {url ? (
+        <a href={url} target="_blank" rel="noopener noreferrer">
+          {item.titulo}
+        </a>
+      ) : (
+        item.titulo
+      )}
+    </Tag>
+  );
 }
 
 /** Um item do feed. O React escapa todo o texto; links só se forem http(s). */
@@ -20,61 +65,54 @@ export function CartaoItem({ item, hoje }: { item: Item; hoje: string }) {
   const url = linkSeguro(item.url);
   const dados = linhaDados(item);
   const extra = linkExtra(item);
-  const data = formatarData(item.publicado_em ?? item.coletado_em);
-  const mostraNota = item.modulo !== "concursos" && item.nota !== null;
-
   return (
-    <article className={item.lido ? "item lido" : "item"}>
-      <header>
-        {mostraNota && <span className={corNota(item.nota ?? 0)}>{item.nota}</span>}
-        <h3>
-          {url ? (
-            <a href={url} target="_blank" rel="noopener noreferrer">
-              {item.titulo}
-            </a>
-          ) : (
-            item.titulo
-          )}
-        </h3>
-      </header>
-
-      <p className="meta">
-        {item.fonte}
-        {data && ` · ${data}`}
-        {item.salvo && " · ★ salvo"}
-      </p>
-      {dados && <p className="dados">{dados}</p>}
-      {item.prazo && (
-        <p className={prazoUrgente(item.prazo, hoje) ? "prazo urgente" : "prazo"}>
-          Inscrição: {textoPrazo(item.prazo, hoje)}
-        </p>
-      )}
-      {item.resumo && <p>{item.resumo}</p>}
-      {item.tags && item.tags.length > 0 && (
-        <p className="tags">
-          {item.tags.map((tag) => (
-            <span key={tag}>{tag}</span>
-          ))}
-        </p>
-      )}
-
-      <footer>
-        {extra && (
-          <a href={extra.url} target="_blank" rel="noopener noreferrer">
-            {extra.rotulo}
-          </a>
+    <CartaoInterativo id={item.id} lido={item.lido} salvo={item.salvo} classe={`cartao modulo-${item.modulo}`} url={url}>
+      <Capa item={item} />
+      <div className="cartao-corpo">
+        <Pilula item={item} />
+        <Titulo item={item} url={url} nivel="h3" />
+        {dados && <p className="cartao-dados">{dados}</p>}
+        {item.resumo && <p className="cartao-resumo">{item.resumo}</p>}
+        {(item.prazo || extra) && (
+          <div className="cartao-chips">
+            {item.prazo && (
+              <span className={prazoUrgente(item.prazo, hoje) ? "chip chip-urgente" : "chip chip-prazo"}>
+                <IconeRelogio width={14} height={14} />
+                Inscrição {textoPrazo(item.prazo, hoje)}
+              </span>
+            )}
+            {extra && (
+              <a className="chip chip-link" href={extra.url} target="_blank" rel="noopener noreferrer">
+                {extra.rotulo}
+                <IconeExterno width={13} height={13} />
+              </a>
+            )}
+          </div>
         )}
-        <form action={marcarLido}>
-          <input type="hidden" name="id" value={item.id} />
-          <input type="hidden" name="valor" value={item.lido ? "0" : "1"} />
-          <button type="submit">{item.lido ? "Marcar não lido" : "Marcar lido"}</button>
-        </form>
-        <form action={marcarSalvo}>
-          <input type="hidden" name="id" value={item.id} />
-          <input type="hidden" name="valor" value={item.salvo ? "0" : "1"} />
-          <button type="submit">{item.salvo ? "Tirar dos salvos" : "Salvar"}</button>
-        </form>
-      </footer>
-    </article>
+        <Meta item={item} />
+      </div>
+    </CartaoInterativo>
+  );
+}
+
+/** O destaque da página inicial: capa grande e título maior. */
+export function CartaoDestaque({ item }: { item: Item }) {
+  const url = linkSeguro(item.url);
+  return (
+    <CartaoInterativo
+      id={item.id}
+      lido={item.lido}
+      salvo={item.salvo}
+      classe={`cartao cartao-destaque modulo-${item.modulo}`}
+      url={url}
+    >
+      <Capa item={item} grande />
+      <div className="cartao-corpo">
+        <Pilula item={item} />
+        <Titulo item={item} url={url} nivel="h2" />
+        {item.resumo && <p className="cartao-resumo">{item.resumo}</p>}
+        <Meta item={item} />
+      </div>
+    </CartaoInterativo>
   );
 }

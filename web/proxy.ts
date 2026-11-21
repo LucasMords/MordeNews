@@ -23,10 +23,10 @@ export async function proxy(requisicao: NextRequest) {
     },
   });
 
-  // getUser() valida o token no Supabase (getSession() só leria o cookie).
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() renova a sessão se preciso e confere a assinatura do token localmente (chave
+  // pública ES256 do projeto, em cache por 10 min): sem ida ao Supabase a cada página.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims.sub ? data.claims : null;
 
   const naLogin = requisicao.nextUrl.pathname.startsWith("/login");
   if (!user && !naLogin) {
