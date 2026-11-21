@@ -159,6 +159,7 @@ EMAIL_SENHA_APP=                # senha de app do Google, NUNCA a senha da conta
 EMAIL_DESTINO=                  # quem recebe o resumo
 NOTA_MINIMA_RESUMO=6
 RESUMO_MAXIMO=30
+PORTAL_URL=                     # bloco 7: URL do portal na Vercel; liga os links 👍/👎 no e-mail (opcional)
 ```
 
 Mantenha `.env.example` atualizado sempre que criar uma variável nova.

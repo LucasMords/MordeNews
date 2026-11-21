@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { destinoSeguro } from "@/lib/destino";
 import { clienteSupabase } from "@/lib/supabase/servidor";
 
 export interface EstadoLogin {
@@ -19,5 +20,5 @@ export async function entrar(_anterior: EstadoLogin, formulario: FormData): Prom
     // Mensagem genérica: não revela se o e-mail existe.
     return { erro: "E-mail ou senha incorretos." };
   }
-  redirect("/");
+  redirect(destinoSeguro(formulario.get("proximo")));
 }

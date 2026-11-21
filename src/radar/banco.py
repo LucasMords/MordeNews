@@ -14,7 +14,7 @@ from typing import Any
 import httpx
 
 from radar import config
-from radar.modelos import Item, ItemPendente, ItemResumo, Modulo, Resultado
+from radar.modelos import Exemplo, Item, ItemPendente, ItemResumo, Modulo, Resultado
 
 log = logging.getLogger(__name__)
 
@@ -373,3 +373,40 @@ def ultimas_execucoes(coletor: str, limite: int = 5) -> list[dict[str, Any]]:
         },
     )
     return list(linhas or [])
+
+
+# ------------------------------------------------------------------ feedback (bloco 7)
+
+
+def exemplos_feedback(modulo: Modulo, desde: datetime, limite: int = 10) -> list[Exemplo]:
+    """Votos 👍/👎 do portal desde `desde`, com o título do item, para calibrar a triagem.
+
+    Devolve até `limite` de cada tipo (👍 primeiro), dos votos mais recentes para os antigos.
+    """
+    votos = _requisitar(
+        "GET",
+        "/feedback",
+        params={
+            "select": "item_id,voto,criado_em",
+            "criado_em": f"gte.{desde.isoformat()}",
+            "order": "criado_em.desc",
+            "limit": "300",
+        },
+    )
+    if not votos:
+        return []
+    ids = ",".join(str(v["item_id"]) for v in votos)
+    itens = _requisitar(
+        "GET",
+        "/itens",
+        params={"select": "id,titulo,nota", "modulo": f"eq.{modulo}", "id": f"in.({ids})"},
+    )
+    por_id = {i["id"]: i for i in itens or []}
+    gostou: list[Exemplo] = []
+    nao_gostou: list[Exemplo] = []
+    for voto in votos:
+        item = por_id.get(voto["item_id"])
+        destino = gostou if voto["voto"] == 1 else nao_gostou
+        if item is not None and len(destino) < limite:
+            destino.append(Exemplo(titulo=item["titulo"], voto=voto["voto"], nota=item.get("nota")))
+    return gostou + nao_gostou

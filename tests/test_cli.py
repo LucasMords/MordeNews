@@ -136,7 +136,7 @@ def ambiente_triagem(monkeypatch: pytest.MonkeyPatch, supabase: SupabaseFalso) -
     return supabase
 
 
-def _classificador(itens: Sequence[ItemPendente], _m: Modulo) -> list[Resultado]:
+def _classificador(itens: Sequence[ItemPendente], _m: Modulo, **_: object) -> list[Resultado]:
     return [
         Resultado(
             id=i.id,
@@ -167,7 +167,7 @@ def test_triar_e_revisar(
 def test_triar_cota_esgotada_retorna_0(
     ambiente_triagem: SupabaseFalso, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def sem_cota(_i: Sequence[ItemPendente], _m: Modulo) -> list[Resultado]:
+    def sem_cota(_i: Sequence[ItemPendente], _m: Modulo, **_: object) -> list[Resultado]:
         raise ia_cliente.CotaEsgotada("429")
 
     monkeypatch.setattr(ia_cliente, "classificar_lote", sem_cota)
@@ -179,7 +179,7 @@ def test_triar_modelo_sobrecarregado_retorna_0_e_para_os_outros_modulos(
 ) -> None:
     chamadas: list[Modulo] = []
 
-    def sobrecarregado(_i: Sequence[ItemPendente], modulo: Modulo) -> list[Resultado]:
+    def sobrecarregado(_i: Sequence[ItemPendente], modulo: Modulo, **_: object) -> list[Resultado]:
         chamadas.append(modulo)
         raise ia_cliente.ModeloSobrecarregado("503 high demand")
 
@@ -193,7 +193,7 @@ def test_triar_modelo_sobrecarregado_retorna_0_e_para_os_outros_modulos(
 def test_triar_erro_da_ia_retorna_1(
     ambiente_triagem: SupabaseFalso, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def quebrado(_i: Sequence[ItemPendente], _m: Modulo) -> list[Resultado]:
+    def quebrado(_i: Sequence[ItemPendente], _m: Modulo, **_: object) -> list[Resultado]:
         raise ia_cliente.ErroIA("403 chave inválida")
 
     monkeypatch.setattr(ia_cliente, "classificar_lote", quebrado)

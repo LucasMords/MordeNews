@@ -66,7 +66,7 @@ export function CartaoItem({ item, hoje }: { item: Item; hoje: string }) {
   const dados = linhaDados(item);
   const extra = linkExtra(item);
   return (
-    <CartaoInterativo id={item.id} lido={item.lido} salvo={item.salvo} classe={`cartao modulo-${item.modulo}`} url={url}>
+    <CartaoInterativo id={item.id} lido={item.lido} salvo={item.salvo} voto={item.voto} classe={`cartao modulo-${item.modulo}`} url={url}>
       <Capa item={item} />
       <div className="cartao-corpo">
         <Pilula item={item} />
@@ -103,6 +103,7 @@ export function CartaoDestaque({ item }: { item: Item }) {
       id={item.id}
       lido={item.lido}
       salvo={item.salvo}
+      voto={item.voto}
       classe={`cartao cartao-destaque modulo-${item.modulo}`}
       url={url}
     >

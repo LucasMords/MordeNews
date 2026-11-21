@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { destinoSeguro } from "@/lib/destino";
 import { configSupabase } from "@/lib/supabase/config";
 
 /**
@@ -30,19 +31,26 @@ export async function proxy(requisicao: NextRequest) {
 
   const naLogin = requisicao.nextUrl.pathname.startsWith("/login");
   if (!user && !naLogin) {
-    return redirecionar(requisicao, "/login", resposta);
+    // Guarda o destino (ex.: um link de voto do e-mail) para voltar a ele depois do login.
+    const { pathname, search } = requisicao.nextUrl;
+    const proximo = pathname === "/" && !search ? "" : `${pathname}${search}`;
+    return redirecionar(requisicao, "/login", resposta, proximo ? { proximo } : {});
   }
   if (user && naLogin) {
-    return redirecionar(requisicao, "/", resposta);
+    return redirecionar(requisicao, destinoSeguro(requisicao.nextUrl.searchParams.get("proximo")), resposta);
   }
   return resposta;
 }
 
 /** Redireciona mantendo os cookies de sessão que o Supabase acabou de renovar. */
-function redirecionar(requisicao: NextRequest, caminho: string, base: NextResponse) {
-  const destino = requisicao.nextUrl.clone();
-  destino.pathname = caminho;
-  destino.search = "";
+function redirecionar(
+  requisicao: NextRequest,
+  caminho: string,
+  base: NextResponse,
+  parametros: Record<string, string> = {},
+) {
+  const destino = new URL(caminho, requisicao.nextUrl.origin);
+  for (const [chave, valor] of Object.entries(parametros)) destino.searchParams.set(chave, valor);
   const resposta = NextResponse.redirect(destino);
   for (const cookie of base.cookies.getAll()) resposta.cookies.set(cookie);
   return resposta;

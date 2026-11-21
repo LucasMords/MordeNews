@@ -109,6 +109,7 @@ def enviar_resumo(
         nota_minima=cfg.nota_minima_resumo,
         fora=fora,
         nota_minima_estagios=cfg.nota_minima_estagios if tem_vagas else None,
+        portal_url=cfg.portal_url,
     )
     resultado = ResultadoResumo(len(escolhidos), len(ids), fora, mensagem)
     log.info(

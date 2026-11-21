@@ -36,6 +36,7 @@ jobs:
       NOTA_MINIMA_ESTAGIOS: ${{ vars.NOTA_MINIMA_ESTAGIOS }} # opcional; vazio = 0 (todas as vagas)
       ESTAGIOS_MAXIMO: ${{ vars.ESTAGIOS_MAXIMO }}         # opcional; vazio = 15
       NOTA_MINIMA_CONCURSOS: ${{ vars.NOTA_MINIMA_CONCURSOS }} # opcional; vazio = 0 (todos)
+      PORTAL_URL: ${{ vars.PORTAL_URL }}   # opcional (aba Variables); links de voto no e-mail
       CONCURSOS_MAXIMO: ${{ vars.CONCURSOS_MAXIMO }}       # opcional; vazio = 20
     steps:
       - uses: actions/checkout@v7

@@ -12,8 +12,51 @@
 - **Bloco 5 — Editais de concurso:** pronto localmente (2026-11-20), aguardando validação do usuário. 3 fontes (Concursos no Brasil TO e GO, PCI filtrado por TO e GO), 26 concursos triados com dados reais, seção Concursos no e-mail (sem nota, por prazo) e o comando `radar alertas-prazo`. Rodado via `workflow_dispatch` em 2026-11-20: coleta ok (25 fontes), e-mail enviado com a seção Concursos; a triagem pegou 503 do Gemini e o job ficou vermelho. Ajuste: 5xx persistente agora interrompe a triagem como o 429 (aviso no log, pendentes para a próxima, workflow não falha). Em 2026-11-21 o usuário considerou o alerta de prazo "meio dispensável por enquanto": ver o primeiro alerta real chegar deixou de ser requisito. **Falta:** o usuário validar a seção Concursos do e-mail.
 - **Bloco 6 — Portal web:** funcionando localmente com o Supabase real (2026-11-21): migração 002 aplicada, login ok. Visual refeito no estilo do mockup do usuário, e botões e navegação mais rápidos. **Falta:** publicar na Vercel (passo 7) e validar lá.
 - **Bloco 9 — Monitoramento:** pronto localmente (2026-11-21), aguardando validação do usuário. O `manutencao` rodou via `workflow_dispatch` em 2026-11-21, e o bot fez o commit `c95ad1c`. `radar monitorar` (fonte falhando 2 vezes seguidas ou há 3 dias sem itens novos), `radar limpar` (apaga o texto bruto depois de 90 dias) e o workflow mensal `manutencao`, que mantém os crons ativos.
+- **Bloco 7 — Feedback:** implementado localmente (2026-11-21), aguardando validação: 👍/👎 no portal, links de voto no e-mail (com `PORTAL_URL`) e votos recentes no prompt da triagem. **Falta:** rodar a migração 003.
 - Crons: em 2026-11-19 o `coletar` rodou com ~9h de atraso, e o `resumo-diario` nunca disparou pelo cron. Resolvido juntando coleta, triagem e resumo em um job às 08:02, com reserva às 15:04. Em 2026-11-20 a reserva rodou com ~5h40 de atraso e deu certo. Em 2026-11-21, às 10h BRT, o das 08:02 ainda não tinha disparado. O usuário aceita o atraso: se um dia não rodar, o seguinte compensa (a coleta olha as últimas 72h de cada fonte). Sem serviço externo de cron.
 - **Manutenção automática:** última em 2026-11-21 (workflow `manutencao`, todo dia 1).
+
+---
+
+## Bloco 7 — Feedback e personalização (2026-11-21)
+
+### O que foi feito
+
+- **`db/migrations/003_feedback.sql`** (nova; as aplicadas não mudam):
+  - um voto por item (`unique (item_id)`);
+  - a conta do portal lê, cria, troca e apaga votos (RLS com `e_usuario_portal()`);
+  - a chave pública sem login segue sem acesso.
+- **Portal:**
+  - botões 👍/👎 em cada cartão, que mudam na hora (`useOptimistic`); clicar de novo no mesmo voto tira o voto;
+  - o voto vem junto com o item (`feedback(voto)`).
+  - Nova página `/votar?item=ID&voto=1|-1|0`, para os links do e-mail:
+    - grava com a sessão do portal e mostra uma confirmação com a opção de trocar o voto;
+    - quem não está logado passa pelo login e volta para o voto (`?proximo=`, só caminhos internos: sem redirecionamento aberto).
+- **E-mail:** com `PORTAL_URL` configurada, cada item do resumo ganha "👍 Mais assim · 👎 Menos assim". Sem a variável, o e-mail fica como antes.
+- **Triagem:**
+  - antes de cada módulo, `banco.exemplos_feedback` lê os votos dos últimos 90 dias: até 10 👍 e 10 👎, os mais recentes, só títulos e a nota que a IA tinha dado;
+  - os votos entram no prompt numa seção "AVALIAÇÕES RECENTES DO USUÁRIO", depois do perfil;
+  - se a leitura falhar, a triagem segue sem os exemplos.
+- **Bug corrigido no e-mail:** a última seção do resumo (Notícias) aparecia repetida, sem título, no fim do HTML. Havia uma variável reaproveitada em `_montar_html`. Agora há um teste de regressão.
+- Sem dependências novas.
+
+### O que falta você fazer
+
+1. **Supabase → SQL Editor:** rode `db/migrations/003_feedback.sql`. **Antes disso, o portal dá erro**, porque ele já lê os votos.
+2. Depois de publicar na Vercel: **GitHub → Settings → Secrets and variables → Actions → Variables → New variable** `PORTAL_URL` = endereço do portal (ex.: `https://mordenews.vercel.app`). A partir do resumo seguinte, os links de voto aparecem no e-mail.
+
+### Como testar
+
+```powershell
+uv run ruff check . ; uv run pytest      # votos, prompt, links no e-mail, regressão do e-mail
+cd web ; npm test ; npm run build
+```
+
+No portal: dar 👍 num item e 👎 em outro, recarregar e conferir que os votos ficaram. Clicar de novo tira o voto. Abrir `/votar?item=<id>&voto=1` numa aba anônima: o login aparece, e depois volta para a confirmação. Na próxima triagem, o log mostra "N votos do portal como exemplo".
+
+### Pronto quando
+
+Os votos são gravados pelo portal e pelo e-mail, e a triagem seguinte mostra os votos como exemplo no log. A melhora nas notas aparece com o tempo; vale revisar uma amostra depois de algumas semanas de votos.
 
 ---
 

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { type Filtros, juntarGrupos, ordenaPorPrazo, POR_PAGINA } from "./filtros";
 import { hojeBrasilia } from "./formato";
-import { COLUNAS_ITEM, type Item, MODULOS, type Modulo } from "./tipos";
+import { COLUNAS_ITEM, type Item, lerVoto, MODULOS, type Modulo } from "./tipos";
 
 const DIA = 86_400_000;
 
@@ -16,7 +16,10 @@ function itens(supabase: SupabaseClient) {
 
 function lista(data: unknown, error: { message: string } | null, oque: string): Item[] {
   if (error) throw new Error(`Falha ao ler ${oque}: ${error.message}`);
-  return (data ?? []) as Item[];
+  return ((data ?? []) as (Omit<Item, "voto"> & { feedback?: unknown })[]).map(({ feedback, ...item }) => ({
+    ...item,
+    voto: lerVoto(feedback),
+  }));
 }
 
 /** Itens triados (status processado) da seção, com os filtros da URL. */

@@ -21,7 +21,14 @@ from google.genai import errors, types
 from pydantic import BaseModel, ValidationError
 
 from radar import config
-from radar.modelos import CamposConcurso, CamposEstagio, ItemPendente, Modulo, Resultado
+from radar.modelos import (
+    CamposConcurso,
+    CamposEstagio,
+    Exemplo,
+    ItemPendente,
+    Modulo,
+    Resultado,
+)
 
 log = logging.getLogger(__name__)
 
@@ -141,13 +148,47 @@ def modulos_com_prompt() -> list[Modulo]:
     ]
 
 
-def montar_instrucoes(modulo: Modulo, perfil: str, hoje: date) -> str:
-    return (
+LIMITE_TITULO_EXEMPLO = 160
+
+
+def secao_exemplos(exemplos: Sequence[Exemplo]) -> str:
+    """Votos recentes do usuário no portal (bloco 7), como calibragem extra do perfil."""
+    if not exemplos:
+        return ""
+
+    def linhas(voto: int) -> list[str]:
+        return [
+            f"- {e.titulo[:LIMITE_TITULO_EXEMPLO]}"
+            + (f" (nota que você deu: {e.nota})" if e.nota is not None else "")
+            for e in exemplos
+            if e.voto == voto
+        ]
+
+    partes = [
+        "## AVALIAÇÕES RECENTES DO USUÁRIO\n",
+        "Itens que o usuário marcou no portal. Use como calibragem do perfil: suba a nota de "
+        "itens parecidos com os que ele gostou e baixe a dos parecidos com os que ele não "
+        "gostou. Avalie cada item novo pelo próprio conteúdo; não copie notas.\n",
+    ]
+    if gostou := linhas(1):
+        partes += ["Gostou (quer mais assim):", *gostou, ""]
+    if nao_gostou := linhas(-1):
+        partes += ["Não gostou (quer menos assim):", *nao_gostou, ""]
+    return "\n".join(partes)
+
+
+def montar_instrucoes(
+    modulo: Modulo, perfil: str, hoje: date, exemplos: Sequence[Exemplo] = ()
+) -> str:
+    texto = (
         f"{carregar_prompt(modulo).strip()}\n\n"
         f"Data de hoje: {hoje.isoformat()}\n\n"
         "## PERFIL DO USUÁRIO\n\n"
         f"{perfil.strip()}\n"
     )
+    if secao := secao_exemplos(exemplos):
+        texto += f"\n{secao}"
+    return texto
 
 
 SEM_TEXTO = "(a fonte não fornece texto; avalie pelo assunto do título, sem descartar por isso)"
@@ -312,14 +353,17 @@ def com_retentativas[T](chamar: Callable[[], T], dormir: Callable[[float], None]
     raise AssertionError("inalcançável")  # pragma: no cover
 
 
-def classificar_lote(itens: Sequence[ItemPendente], modulo: Modulo) -> list[Resultado]:
+def classificar_lote(
+    itens: Sequence[ItemPendente], modulo: Modulo, *, exemplos: Sequence[Exemplo] = ()
+) -> list[Resultado]:
     """Classifica um lote de itens de um módulo numa única chamada ao modelo.
 
+    `exemplos` são votos recentes do usuário no portal, mostrados ao modelo como calibragem.
     Devolve só os resultados válidos; os itens que faltarem devem continuar pendentes.
     """
     if not itens:
         return []
-    instrucoes = montar_instrucoes(modulo, config.carregar_perfil(), date.today())
+    instrucoes = montar_instrucoes(modulo, config.carregar_perfil(), date.today(), exemplos)
     conteudo = montar_conteudo(itens, modulo)
     texto = com_retentativas(lambda: _chamar_modelo(instrucoes, conteudo, esquema_resposta(modulo)))
     resultados = interpretar_resposta(

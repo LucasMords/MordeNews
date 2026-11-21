@@ -143,6 +143,21 @@ export const IconeTag = (p: Props) => (
   </Icone>
 );
 
+export const IconeGostei = ({ cheio, ...p }: Props & { cheio?: boolean }) => (
+  <Icone {...p}>
+    <path d="M7 10v11H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1Z" fill={cheio ? "currentColor" : "none"} />
+    <path
+      d="M7 10l4-7a2.5 2.5 0 0 1 2.6 3L13 10h6a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.8 21H7"
+      fill={cheio ? "currentColor" : "none"}
+      fillOpacity={cheio ? 0.25 : 0}
+    />
+  </Icone>
+);
+
+export const IconeNaoGostei = ({ cheio, ...p }: Props & { cheio?: boolean }) => (
+  <IconeGostei cheio={cheio} {...p} style={{ transform: "rotate(180deg)", ...p.style }} />
+);
+
 /** Marca do MordeNews: "</>" em degradê roxo. */
 export function Logo({ tamanho = 40 }: { tamanho?: number }) {
   return (

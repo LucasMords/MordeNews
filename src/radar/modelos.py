@@ -266,3 +266,11 @@ class Resultado(BaseModel):
     @property
     def status(self) -> StatusItem:
         return "descartado" if self.descartar else "processado"
+
+
+class Exemplo(BaseModel):
+    """Um voto do usuário no portal (bloco 7), usado como exemplo no prompt da triagem."""
+
+    titulo: str
+    voto: Literal[-1, 1]
+    nota: int | None = None  # nota que a IA tinha dado ao item

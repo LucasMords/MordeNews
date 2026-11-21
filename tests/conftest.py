@@ -21,7 +21,11 @@ class SupabaseFalso:
     """Imita o mínimo do PostgREST que o banco.py usa, guardando as tabelas em memória."""
 
     def __init__(self) -> None:
-        self.tabelas: dict[str, list[dict[str, Any]]] = {"itens": [], "execucoes": []}
+        self.tabelas: dict[str, list[dict[str, Any]]] = {
+            "itens": [],
+            "execucoes": [],
+            "feedback": [],
+        }
         self.requisicoes: list[httpx.Request] = []
         self._ids = count(1)
         self._inicio = datetime.now(UTC)

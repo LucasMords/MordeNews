@@ -1583,3 +1583,43 @@ select:focus,
     background-position: 0 0;
   }
 }
+
+/* ================================================================ 👍/👎 (bloco 7) */
+.cartao-botoes {
+  display: grid;
+  grid-template-columns: repeat(2, 36px);
+  gap: 0.15rem;
+}
+
+.botao-icone.gostei-ativo {
+  color: var(--alta);
+}
+
+.botao-icone.nao-gostei-ativo {
+  color: var(--perigo);
+}
+
+.voto-cartao {
+  gap: 0.9rem;
+}
+
+.voto-mensagem {
+  font-size: 1.35rem;
+}
+
+.voto-titulo {
+  margin: 0;
+  font-weight: 600;
+  color: var(--forte);
+}
+
+.voto-titulo a:hover {
+  color: var(--primaria-clara);
+}
+
+.voto-trocar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}

@@ -9,7 +9,10 @@ export const TITULOS_MODULO: Record<Modulo, string> = {
 
 /** Colunas que o portal lê de `itens` (o `texto` bruto fica de fora: pesa e não é mostrado). */
 export const COLUNAS_ITEM =
-  "id,modulo,fonte,titulo,url,publicado_em,coletado_em,nota,resumo,tags,campos,prazo,lido,salvo";
+  "id,modulo,fonte,titulo,url,publicado_em,coletado_em,nota,resumo,tags,campos,prazo,lido,salvo,feedback(voto)";
+
+/** Voto do usuário no item (bloco 7): 1 = 👍, -1 = 👎, null = sem voto. */
+export type Voto = 1 | -1 | null;
 
 export type Campos = Record<string, unknown>;
 
@@ -28,4 +31,12 @@ export interface Item {
   prazo: string | null; // AAAA-MM-DD
   lido: boolean;
   salvo: boolean;
+  voto: Voto;
+}
+
+/** O voto chega embutido (`feedback(voto)`): objeto, lista ou null, conforme o PostgREST. */
+export function lerVoto(feedback: unknown): Voto {
+  const linha = Array.isArray(feedback) ? feedback[0] : feedback;
+  const voto = (linha as { voto?: unknown } | null | undefined)?.voto;
+  return voto === 1 || voto === -1 ? voto : null;
 }

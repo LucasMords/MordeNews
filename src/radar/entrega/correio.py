@@ -124,16 +124,20 @@ def montar_mensagem(
     nota_minima: int,
     fora: int = 0,
     nota_minima_estagios: int | None = None,
+    portal_url: str | None = None,
 ) -> Mensagem:
-    """Monta o resumo agrupado por módulo e ordenado por nota, em HTML e texto puro."""
+    """Monta o resumo agrupado por módulo e ordenado por nota, em HTML e texto puro.
+
+    Com `portal_url`, cada item ganha links 👍/👎 que abrem o portal e registram o voto.
+    """
     normalizados = [a if isinstance(a, Assunto) else Assunto(a) for a in assuntos]
     grupos = _por_modulo(normalizados)
     tem_concursos = any(modulo in SEM_NOTA for modulo, _ in grupos)
     rodape = _rodape(nota_minima, fora, nota_minima_estagios, tem_concursos)
     return Mensagem(
         assunto=_titulo_email(normalizados, hoje),
-        texto=_montar_texto(grupos, hoje, rodape),
-        html=_montar_html(grupos, hoje, rodape),
+        texto=_montar_texto(grupos, hoje, rodape, portal_url),
+        html=_montar_html(grupos, hoje, rodape, portal_url=portal_url),
     )
 
 
@@ -189,7 +193,12 @@ def _linha_vaga(campos: dict[str, object]) -> str | None:
     return texto or None
 
 
-def _montar_texto(grupos: Grupos, hoje: date, rodape: str) -> str:
+def link_voto(portal_url: str, item_id: int, voto: int) -> str:
+    """Link do e-mail que abre o portal em /votar (o login é pedido se preciso)."""
+    return f"{portal_url.rstrip('/')}/votar?item={item_id}&voto={voto}"
+
+
+def _montar_texto(grupos: Grupos, hoje: date, rodape: str, portal_url: str | None = None) -> str:
     linhas = [f"{NOME_REMETENTE} — resumo de {_data(hoje)}", ""]
     for modulo, assuntos in grupos:
         linhas += [f"== {TITULOS_MODULO[modulo]} ({len(assuntos)}) ==", ""]
@@ -210,6 +219,11 @@ def _montar_texto(grupos: Grupos, hoje: date, rodape: str) -> str:
             if assunto.repetidos:
                 outras = ", ".join(f"{r.fonte} ({r.url})" for r in assunto.repetidos)
                 linhas.append(f"    Também em: {outras}")
+            if portal_url:
+                linhas.append(
+                    f"    Gostou? {link_voto(portal_url, item.id, 1)}"
+                    f"  Não gostou? {link_voto(portal_url, item.id, -1)}"
+                )
             linhas.append("")
     linhas += ["--", rodape]
     return "\n".join(linhas)
@@ -238,7 +252,10 @@ def _link(url: str, texto: str, estilo: str = "color:#1849a9;") -> str:
     return f'<a href="{escape(url, quote=True)}" style="{estilo}">{escape(texto)}</a>'
 
 
-def _assunto_html(assunto: Assunto) -> str:
+_ESTILO_VOTO = "color:#475467;text-decoration:none;"
+
+
+def _assunto_html(assunto: Assunto, portal_url: str | None = None) -> str:
     item = assunto.principal
     nota = (
         ""
@@ -264,18 +281,32 @@ def _assunto_html(assunto: Assunto) -> str:
     if assunto.repetidos:
         outras = ", ".join(_link(r.url, r.fonte) for r in assunto.repetidos)
         blocos.append(f'<div style="color:#667085;font-size:12px;">Também em: {outras}</div>')
+    if portal_url:
+        gostei = _link(link_voto(portal_url, item.id, 1), "👍 Mais assim", _ESTILO_VOTO)
+        nao_gostei = _link(link_voto(portal_url, item.id, -1), "👎 Menos assim", _ESTILO_VOTO)
+        blocos.append(
+            f'<div style="font-size:12px;margin-top:4px;">{gostei} &nbsp;·&nbsp; {nao_gostei}</div>'
+        )
     return f'<div style="padding:10px 0;border-bottom:1px solid #eaecf0;">{"".join(blocos)}</div>'
 
 
 def _montar_html(
-    grupos: Grupos, hoje: date, rodape: str, *, cabecalho: str | None = None, corpo: str = ""
+    grupos: Grupos,
+    hoje: date,
+    rodape: str,
+    *,
+    cabecalho: str | None = None,
+    corpo: str = "",
+    portal_url: str | None = None,
 ) -> str:
     secoes = []
     for modulo, assuntos in grupos:
         titulo = escape(f"{TITULOS_MODULO[modulo]} ({len(assuntos)})")
-        corpo = "".join(_assunto_html(a) for a in assuntos)
+        # nome próprio: reaproveitar `corpo` aqui repetia a última seção no fim do e-mail
+        itens_html = "".join(_assunto_html(a, portal_url) for a in assuntos)
         secoes.append(
-            f'<h2 style="font-size:16px;margin:24px 0 4px 0;color:#101828;">{titulo}</h2>{corpo}'
+            f'<h2 style="font-size:16px;margin:24px 0 4px 0;color:#101828;">{titulo}</h2>'
+            f"{itens_html}"
         )
     return (
         '<!doctype html><html lang="pt-BR"><body style="margin:0;padding:16px;background:#f9fafb;">'

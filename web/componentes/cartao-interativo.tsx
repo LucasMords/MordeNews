@@ -1,31 +1,38 @@
 "use client";
 
 import { type ReactNode, useOptimistic } from "react";
-import { marcarLido, marcarSalvo } from "@/app/acoes";
-import { IconeLido, IconeSalvo, IconeSeta } from "@/componentes/icones";
+import { marcarLido, marcarSalvo, votar } from "@/app/acoes";
+import { IconeGostei, IconeLido, IconeNaoGostei, IconeSalvo, IconeSeta } from "@/componentes/icones";
+import type { Voto } from "@/lib/tipos";
 
 interface Marcas {
   lido: boolean;
   salvo: boolean;
+  voto: Voto;
 }
 
 /**
- * Casca do cartão com os botões salvar/lido. A mudança aparece na hora (useOptimistic) e a
- * Server Action grava em segundo plano; se ela falhar, o React volta ao estado verdadeiro.
+ * Casca do cartão com os botões salvar, lido e 👍/👎. A mudança aparece na hora
+ * (useOptimistic) e a Server Action grava em segundo plano; se falhar, o React volta ao
+ * estado verdadeiro.
  */
 export function CartaoInterativo({
   id,
   lido,
   salvo,
+  voto,
   classe,
   url,
   children,
 }: Marcas & { id: number; classe: string; url: string | null; children: ReactNode }) {
-  const [marcas, mudar] = useOptimistic<Marcas, Partial<Marcas>>({ lido, salvo }, (atual, m) => ({ ...atual, ...m }));
+  const [marcas, mudar] = useOptimistic<Marcas, Partial<Marcas>>({ lido, salvo, voto }, (atual, m) => ({
+    ...atual,
+    ...m,
+  }));
 
-  function acao(marca: keyof Marcas, gravar: (f: FormData) => Promise<void>) {
+  function acao(mudanca: Partial<Marcas>, gravar: (f: FormData) => Promise<void>) {
     return async (formulario: FormData) => {
-      mudar({ [marca]: !marcas[marca] });
+      mudar(mudanca);
       try {
         await gravar(formulario);
       } catch {
@@ -35,6 +42,9 @@ export function CartaoInterativo({
   }
 
   const classes = [classe, marcas.lido ? "lido" : "", marcas.salvo ? "salvo" : ""].filter(Boolean).join(" ");
+  // Clicar no voto que já está marcado tira o voto.
+  const votoGostei: Voto = marcas.voto === 1 ? null : 1;
+  const votoNaoGostei: Voto = marcas.voto === -1 ? null : -1;
 
   return (
     <article className={classes}>
@@ -45,12 +55,20 @@ export function CartaoInterativo({
             <IconeSeta width={20} height={20} />
           </a>
         )}
-        <Botao acao={acao("salvo", marcarSalvo)} id={id} ativo={marcas.salvo} rotulo="Salvar" rotuloAtivo="Tirar dos salvos" classeAtiva="salvo-ativo">
-          <IconeSalvo cheio={marcas.salvo} />
-        </Botao>
-        <Botao acao={acao("lido", marcarLido)} id={id} ativo={marcas.lido} rotulo="Marcar como lido" rotuloAtivo="Marcar como não lido" classeAtiva="ativo">
-          <IconeLido />
-        </Botao>
+        <div className="cartao-botoes">
+          <Botao acao={acao({ salvo: !marcas.salvo }, marcarSalvo)} id={id} campo="valor" valor={marcas.salvo ? "0" : "1"} ativo={marcas.salvo} texto={marcas.salvo ? "Tirar dos salvos" : "Salvar"} classeAtiva="salvo-ativo">
+            <IconeSalvo cheio={marcas.salvo} />
+          </Botao>
+          <Botao acao={acao({ lido: !marcas.lido }, marcarLido)} id={id} campo="valor" valor={marcas.lido ? "0" : "1"} ativo={marcas.lido} texto={marcas.lido ? "Marcar como não lido" : "Marcar como lido"} classeAtiva="ativo">
+            <IconeLido />
+          </Botao>
+          <Botao acao={acao({ voto: votoGostei }, votar)} id={id} campo="voto" valor={String(votoGostei ?? 0)} ativo={marcas.voto === 1} texto={marcas.voto === 1 ? "Tirar o 👍" : "Gostei: mais assim"} classeAtiva="gostei-ativo">
+            <IconeGostei cheio={marcas.voto === 1} />
+          </Botao>
+          <Botao acao={acao({ voto: votoNaoGostei }, votar)} id={id} campo="voto" valor={String(votoNaoGostei ?? 0)} ativo={marcas.voto === -1} texto={marcas.voto === -1 ? "Tirar o 👎" : "Não gostei: menos assim"} classeAtiva="nao-gostei-ativo">
+            <IconeNaoGostei cheio={marcas.voto === -1} />
+          </Botao>
+        </div>
       </div>
     </article>
   );
@@ -59,25 +77,26 @@ export function CartaoInterativo({
 function Botao({
   acao,
   id,
+  campo,
+  valor,
   ativo,
-  rotulo,
-  rotuloAtivo,
+  texto,
   classeAtiva,
   children,
 }: {
   acao: (f: FormData) => Promise<void>;
   id: number;
+  campo: "valor" | "voto";
+  valor: string;
   ativo: boolean;
-  rotulo: string;
-  rotuloAtivo: string;
+  texto: string;
   classeAtiva: string;
   children: ReactNode;
 }) {
-  const texto = ativo ? rotuloAtivo : rotulo;
   return (
     <form action={acao}>
       <input type="hidden" name="id" value={id} />
-      <input type="hidden" name="valor" value={ativo ? "0" : "1"} />
+      <input type="hidden" name={campo} value={valor} />
       <button type="submit" className={ativo ? `botao-icone ${classeAtiva}` : "botao-icone"} title={texto} aria-label={texto} aria-pressed={ativo}>
         {children}
       </button>

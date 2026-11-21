@@ -6,17 +6,19 @@ import logging
 import time
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from radar import banco
 from radar.ia import cliente
-from radar.modelos import ItemPendente, Modulo, Resultado
+from radar.modelos import Exemplo, ItemPendente, Modulo, Resultado
 
 log = logging.getLogger(__name__)
 
 TAMANHO_LOTE = 25
 MAXIMO_POR_EXECUCAO = 500
 PAUSA_ENTRE_LOTES = 4.0  # segundos; mantém a taxa abaixo do limite por minuto do plano gratuito
+DIAS_EXEMPLOS = 90  # votos do portal mais antigos que isso não entram no prompt
+EXEMPLOS_POR_TIPO = 10  # até 10 👍 e 10 👎
 
 
 @dataclass
@@ -54,12 +56,13 @@ def triar(
     resumo = ResumoTriagem(modulo)
     itens = banco.pendentes(modulo, maximo)
     log.info("triagem %s: %d itens pendentes", modulo, len(itens))
+    exemplos = carregar_exemplos(modulo, iniciado_em) if itens else []
     try:
         for numero, lote in enumerate(em_lotes(itens, tamanho_lote)):
             if numero:
                 dormir(pausa)
             try:
-                resultados = cliente.classificar_lote(lote, modulo)
+                resultados = cliente.classificar_lote(lote, modulo, exemplos=exemplos)
             except cliente.IATemporariamenteFora as erro:
                 log.warning("triagem %s interrompida: %s", modulo, erro)
                 resumo.interrompido = (
@@ -74,6 +77,27 @@ def triar(
         raise
     _registrar(resumo, iniciado_em, ok=True)
     return resumo
+
+
+def carregar_exemplos(modulo: Modulo, agora: datetime) -> list[Exemplo]:
+    """Votos recentes do portal para o prompt. Sem eles a triagem segue normalmente."""
+    try:
+        exemplos = banco.exemplos_feedback(
+            modulo, agora - timedelta(days=DIAS_EXEMPLOS), EXEMPLOS_POR_TIPO
+        )
+    except banco.ErroBanco as erro:
+        log.warning("triagem %s: votos do portal indisponíveis — %s", modulo, erro)
+        return []
+    if exemplos:
+        gostou = sum(e.voto == 1 for e in exemplos)
+        log.info(
+            "triagem %s: %d votos do portal como exemplo (%d 👍, %d 👎)",
+            modulo,
+            len(exemplos),
+            gostou,
+            len(exemplos) - gostou,
+        )
+    return exemplos
 
 
 def _gravar_lote(

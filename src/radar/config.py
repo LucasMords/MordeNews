@@ -44,6 +44,7 @@ class Configuracao:
     estagios_maximo: int = 15  # limite próprio, para as vagas não disputarem espaço com notícias
     nota_minima_concursos: int = 0  # concursos não são filtrados por nota (pedido do usuário)
     concursos_maximo: int = 20
+    portal_url: str | None = None  # bloco 7: links 👍/👎 no e-mail; vazio = sem links
 
     def __repr__(self) -> str:  # nunca expor chaves nem dados pessoais em logs ou tracebacks
         return (
@@ -96,6 +97,15 @@ def _inteiro(nome: str, padrao: int) -> int:
         raise ErroConfiguracao(f"{nome} deve ser um número inteiro, recebido {bruto!r}.") from erro
 
 
+def _url(nome: str) -> str | None:
+    valor = _texto(nome)
+    if valor is None:
+        return None
+    if not valor.startswith(("https://", "http://")):
+        raise ErroConfiguracao(f"{nome} deve começar com https://, recebido {valor!r}.")
+    return valor.rstrip("/")
+
+
 def ler_ambiente() -> Configuracao:
     """Lê as variáveis do ambiente atual, sem cache (útil em testes)."""
     return Configuracao(
@@ -116,6 +126,7 @@ def ler_ambiente() -> Configuracao:
         estagios_maximo=_inteiro("ESTAGIOS_MAXIMO", 15),
         nota_minima_concursos=_inteiro("NOTA_MINIMA_CONCURSOS", 0),
         concursos_maximo=_inteiro("CONCURSOS_MAXIMO", 20),
+        portal_url=_url("PORTAL_URL"),
     )
 
 

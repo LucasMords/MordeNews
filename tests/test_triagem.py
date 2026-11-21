@@ -29,7 +29,7 @@ def _usar(monkeypatch: pytest.MonkeyPatch, classificador: Classificador) -> list
     """Troca classificar_lote e devolve a lista de lotes recebidos (ids)."""
     lotes: list[list[int]] = []
 
-    def falso(itens: Sequence[ItemPendente], modulo: Modulo) -> list[Resultado]:
+    def falso(itens: Sequence[ItemPendente], modulo: Modulo, **_: object) -> list[Resultado]:
         lotes.append([i.id for i in itens])
         return classificador(itens, modulo)
 
