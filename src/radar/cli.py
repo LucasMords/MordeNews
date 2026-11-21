@@ -9,7 +9,7 @@ from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
-from radar import banco, config
+from radar import banco, config, monitor
 from radar.coletores.base import executar
 from radar.coletores.http import ClienteHttp
 from radar.coletores.registro import filtrar_fontes, montar_coletores
@@ -185,6 +185,27 @@ def comando_alertas_prazo(args: argparse.Namespace) -> int:
     return 0
 
 
+def comando_monitorar(args: argparse.Namespace) -> int:
+    """Avisa por e-mail as fontes falhando ou sem itens novos (ou só mostra, com --simular)."""
+    config.carregar().exigir_supabase()
+    resultado = monitor.monitorar(simular=args.simular)
+    if args.simular:
+        if not resultado.problemas:
+            print("Nenhuma fonte com problema.")
+        for problema in resultado.problemas:
+            print(f"• {problema.fonte} [{problema.tipo}] — {problema.detalhe}")
+    return 0
+
+
+def comando_limpar(args: argparse.Namespace) -> int:
+    """Apaga o texto bruto dos itens com mais de 90 dias que não foram salvos."""
+    config.carregar().exigir_supabase()
+    quantidade = monitor.limpar(simular=args.simular)
+    if args.simular:
+        print(f"{quantidade} itens teriam o texto apagado.")
+    return 0
+
+
 def _montar_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="radar", description="Radar pessoal de informação.")
     sub = parser.add_subparsers(dest="comando", required=True)
@@ -237,6 +258,20 @@ def _montar_parser() -> argparse.ArgumentParser:
     )
     alerta_cmd.add_argument("--simular", action="store_true", help="mostra o alerta, sem enviar")
     alerta_cmd.set_defaults(funcao=comando_alertas_prazo)
+
+    monitor_cmd = sub.add_parser(
+        "monitorar", help="avisa por e-mail fontes falhando ou há 3 dias sem itens novos"
+    )
+    monitor_cmd.add_argument(
+        "--simular", action="store_true", help="mostra os problemas, sem enviar nem registrar"
+    )
+    monitor_cmd.set_defaults(funcao=comando_monitorar)
+
+    limpar_cmd = sub.add_parser(
+        "limpar", help="apaga o texto bruto de itens com mais de 90 dias não salvos"
+    )
+    limpar_cmd.add_argument("--simular", action="store_true", help="só conta, sem apagar")
+    limpar_cmd.set_defaults(funcao=comando_limpar)
 
     teste = sub.add_parser("teste-banco", help="grava e lê um item de teste no Supabase")
     teste.add_argument("--manter", action="store_true", help="não apaga o item de teste ao final")

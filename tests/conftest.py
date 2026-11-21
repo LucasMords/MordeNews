@@ -43,13 +43,21 @@ class SupabaseFalso:
     def _bate(linha: dict[str, Any], filtros: list[tuple[str, str, str]]) -> bool:
         for coluna, operador, alvo in filtros:
             valor = linha.get(coluna)
-            if operador == "eq" and str(valor) != alvo:
+            texto = str(valor).lower() if isinstance(valor, bool) else str(valor)
+            if operador == "eq" and texto != alvo:
                 return False
-            if operador == "in" and str(valor) not in alvo.strip("()").split(","):
+            if operador == "neq" and texto == alvo:
+                return False
+            opcoes = [o.strip('"') for o in alvo.strip("()").split(",")]
+            if operador == "in" and texto not in opcoes:
                 return False
             if operador == "is" and alvo == "null" and valor is not None:
                 return False
+            if operador == "not" and alvo == "is.null" and valor is None:
+                return False
             if operador == "gte" and (valor is None or not SupabaseFalso._maior_igual(valor, alvo)):
+                return False
+            if operador == "lt" and (valor is None or SupabaseFalso._maior_igual(valor, alvo)):
                 return False
         return True
 
@@ -122,9 +130,12 @@ class SupabaseFalso:
 
         if requisicao.method == "PATCH":
             mudancas = json.loads(requisicao.content)
-            for linha in linhas:
-                if self._bate(linha, filtros):
-                    linha.update(mudancas)
+            alteradas = [linha for linha in linhas if self._bate(linha, filtros)]
+            for linha in alteradas:
+                linha.update(mudancas)
+            if "return=representation" in prefer:
+                select = params.get("select")
+                return httpx.Response(200, json=[self._selecionar(a, select) for a in alteradas])
             return httpx.Response(204)
 
         if requisicao.method == "DELETE":

@@ -1,0 +1,54 @@
+name: manutencao
+
+# Bloco 9, uma vez por mês:
+# 1. apaga o texto bruto dos itens com mais de 90 dias não salvos (Supabase gratuito: 500 MB);
+# 2. faz um commit em docs/progresso.md. O repositório é público, e o GitHub desativa os crons
+#    depois de 60 dias sem atividade; o commit mensal mantém os agendamentos vivos.
+on:
+  schedule:
+    - cron: "23 9 1 * *"   # dia 1 de cada mês, 06:23 BRT
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: manutencao
+  cancel-in-progress: false
+
+jobs:
+  manutencao:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      RADAR_CONTATO: ${{ secrets.RADAR_CONTATO }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Instalar dependências
+        run: uv sync --frozen --no-dev
+
+      - name: Limpar texto de itens antigos
+        run: uv run --frozen --no-dev radar limpar
+
+      # Roda mesmo se a limpeza falhar: o que importa aqui é manter os crons ativos.
+      - name: Commit mensal para manter os crons ativos
+        if: ${{ !cancelled() }}
+        run: |
+          hoje=$(date -u +%F)
+          sed -i "s/^- \*\*Manutenção automática:\*\*.*/- **Manutenção automática:** última em $hoje (workflow \`manutencao\`, todo dia 1)./" docs/progresso.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/progresso.md
+          if git diff --cached --quiet; then
+            echo "nada a commitar (a linha de manutenção não existe ou já está com a data de hoje)"
+            exit 0
+          fi
+          git commit -m "manutenção: atividade mensal ($hoje)"
+          git push

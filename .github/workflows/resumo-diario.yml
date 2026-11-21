@@ -73,3 +73,9 @@ jobs:
       - name: Alertar prazos de inscrição
         if: ${{ !cancelled() }}
         run: uv run --frozen --no-dev radar alertas-prazo
+
+      # Bloco 9: avisa fontes falhando 2 vezes seguidas ou há 3 dias sem itens novos.
+      # No máximo uma verificação por dia; cada problema é avisado uma vez (de novo após 7 dias).
+      - name: Monitorar fontes
+        if: ${{ !cancelled() }}
+        run: uv run --frozen --no-dev radar monitorar

@@ -11,8 +11,12 @@ from datetime import date, datetime, timedelta, timezone
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
 from html import escape
+from typing import TYPE_CHECKING
 
 from radar.modelos import ItemResumo
+
+if TYPE_CHECKING:
+    from radar.monitor import Problema
 
 log = logging.getLogger(__name__)
 
@@ -24,6 +28,7 @@ NOTA_DESTAQUE = 9
 TITULOS_MODULO = {"noticias": "Notícias", "estagios": "Estágios", "concursos": "Concursos"}
 ORDEM_MODULO = ("concursos", "estagios", "noticias")  # oportunidades com prazo primeiro
 SEM_NOTA = frozenset({"concursos"})  # pedido do usuário (2026-11-20): concursos não mostram nota
+TITULOS_PROBLEMA = {"falha": "falhando", "sem-itens": "sem itens novos"}
 
 
 class ErroEnvio(RuntimeError):
@@ -325,6 +330,34 @@ def montar_alerta(itens: Sequence[ItemResumo], hoje: date) -> Mensagem:
     linhas += ["--", rodape]
     html = _montar_html(
         [], hoje, rodape, cabecalho=f"Prazos terminando ({_data(hoje)})", corpo="".join(blocos)
+    )
+    return Mensagem(assunto=assunto, texto="\n".join(linhas), html=html)
+
+
+# ------------------------------------------------------------------ monitoramento
+
+
+def montar_monitor(problemas: Sequence[Problema], hoje: date) -> Mensagem:
+    """Aviso de coletores com problema (falhas seguidas ou dias sem itens novos)."""
+    plural = "fonte com problema" if len(problemas) == 1 else "fontes com problema"
+    assunto = f"{NOME_REMETENTE}: {len(problemas)} {plural}"
+    rodape = (
+        "Aviso do monitoramento. Cada problema é avisado uma vez e de novo após 7 dias, "
+        "se continuar."
+    )
+    linhas = [f"{NOME_REMETENTE} — monitoramento ({_data(hoje)})", ""]
+    blocos = []
+    for problema in problemas:
+        titulo = f"{problema.fonte} ({TITULOS_PROBLEMA[problema.tipo]})"
+        linhas += [f"• {titulo}", f"    {problema.detalhe}", ""]
+        blocos.append(
+            '<div style="padding:10px 0;border-bottom:1px solid #eaecf0;">'
+            f'<div style="color:#b42318;font-weight:bold;">{escape(titulo)}</div>'
+            f"<div>{escape(problema.detalhe)}</div></div>"
+        )
+    linhas += ["--", rodape]
+    html = _montar_html(
+        [], hoje, rodape, cabecalho=f"Monitoramento ({_data(hoje)})", corpo="".join(blocos)
     )
     return Mensagem(assunto=assunto, texto="\n".join(linhas), html=html)
 

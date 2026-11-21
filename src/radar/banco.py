@@ -256,6 +256,36 @@ def com_prazo(inicio: date, fim: date, limite: int = 500) -> list[ItemResumo]:
     return [i for i in itens if i.prazo is not None and i.prazo <= fim]
 
 
+def _filtro_limpeza(antes: datetime) -> dict[str, str]:
+    """Itens já triados, não salvos, coletados antes de `antes` e que ainda têm texto."""
+    return {
+        "coletado_em": f"lt.{antes.astimezone(UTC).isoformat()}",
+        "salvo": "eq.false",
+        "status": "neq.pendente",
+        "texto": "not.is.null",
+    }
+
+
+def contar_para_limpeza(antes: datetime) -> int:
+    linhas = _requisitar("GET", "/itens", params={"select": "id", **_filtro_limpeza(antes)})
+    return len(linhas or [])
+
+
+def limpar_textos(antes: datetime) -> int:
+    """Apaga o `texto` (só ele) dos itens antigos não salvos. Devolve quantos foram limpos.
+
+    Título, resumo, nota, link e campos continuam no banco.
+    """
+    limpos = _requisitar(
+        "PATCH",
+        "/itens",
+        params={"select": "id", **_filtro_limpeza(antes)},
+        json={"texto": None},
+        prefer="return=representation",
+    )
+    return len(limpos or [])
+
+
 def marcar_enviados(ids: Sequence[int]) -> None:
     if not ids:
         return
@@ -308,6 +338,27 @@ def houve_execucao_ok(coletor: str, desde: datetime) -> bool:
         },
     )
     return any(linha.get("ok") is True for linha in linhas or [])
+
+
+def execucoes_desde(
+    desde: datetime, coletores: Sequence[str], limite: int = 1000
+) -> list[dict[str, Any]]:
+    """Execuções dos `coletores` iniciadas a partir de `desde`, das mais novas para as antigas."""
+    if not coletores:
+        return []
+    nomes = ",".join(f'"{nome}"' for nome in coletores)
+    linhas = _requisitar(
+        "GET",
+        "/execucoes",
+        params={
+            "select": "coletor,iniciado_em,ok,itens_novos,erro",
+            "coletor": f"in.({nomes})",
+            "iniciado_em": f"gte.{desde.astimezone(UTC).isoformat()}",
+            "order": "iniciado_em.desc",
+            "limit": str(limite),
+        },
+    )
+    return list(linhas or [])
 
 
 def ultimas_execucoes(coletor: str, limite: int = 5) -> list[dict[str, Any]]:

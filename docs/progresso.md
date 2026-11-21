@@ -9,8 +9,50 @@
 - **Bloco 2 — Triagem por IA:** concluído (2026-11-19). Amostra de 20 notas aprovada pelo usuário. No GitHub Actions (`workflow_dispatch`, 12:48 UTC): coleta de 106 itens novos e triagem dos 106, sem erro. No banco: 265 processados, 28 descartados, 0 pendentes. 
 - **Bloco 3 — Resumo diário por e-mail:** concluído (2026-11-19). **Fim do MVP.** 1º envio local: 30 assuntos (45 itens). O usuário confirmou que chegou na caixa de entrada, fora do spam. Depois, via `workflow_dispatch` no GitHub: 31 itens novos, sem repetir nenhum do 1º envio (76 itens distintos marcados). 
 - **Bloco 4 — Vagas de estágio:** concluído (2026-11-20). 12 fontes de vagas. Via `workflow_dispatch` no GitHub: coleta de 22/22 fontes, triagem e e-mail "MordeNews 20/11: 41 itens" (30 assuntos de notícias + 11 entradas de vagas). O usuário confirmou que o e-mail chegou com a seção Estágios (empresa, local e bolsa). Coleta, triagem e resumo agora rodam no mesmo job, às 08:02 BRT, com reserva às 15:04.
-- **Bloco 5 — Editais de concurso:** pronto localmente (2026-11-20), aguardando validação do usuário. 3 fontes (Concursos no Brasil TO e GO, PCI filtrado por TO e GO), 26 concursos triados com dados reais, seção Concursos no e-mail (sem nota, por prazo) e o comando `radar alertas-prazo`. Rodado via `workflow_dispatch` em 2026-11-20: coleta ok (25 fontes), e-mail enviado com a seção Concursos; a triagem pegou 503 do Gemini e o job ficou vermelho. Ajuste: 5xx persistente agora interrompe a triagem como o 429 (aviso no log, pendentes para a próxima, workflow não falha). **Falta:** o usuário validar.
-- Crons: em 2026-11-19 o `coletar` rodou com ~9h de atraso, e o `resumo-diario` nunca disparou pelo cron. Resolvido juntando coleta, triagem e resumo em um job às 08:02, com reserva às 15:04. **Conferir em 2026-11-21** se o das 08:02 disparou.
+- **Bloco 5 — Editais de concurso:** pronto localmente (2026-11-20), aguardando validação do usuário. 3 fontes (Concursos no Brasil TO e GO, PCI filtrado por TO e GO), 26 concursos triados com dados reais, seção Concursos no e-mail (sem nota, por prazo) e o comando `radar alertas-prazo`. Rodado via `workflow_dispatch` em 2026-11-20: coleta ok (25 fontes), e-mail enviado com a seção Concursos; a triagem pegou 503 do Gemini e o job ficou vermelho. Ajuste: 5xx persistente agora interrompe a triagem como o 429 (aviso no log, pendentes para a próxima, workflow não falha). Em 2026-11-21 o usuário considerou o alerta de prazo "meio dispensável por enquanto": ver o primeiro alerta real chegar deixou de ser requisito. **Falta:** o usuário validar a seção Concursos do e-mail.
+- **Bloco 9 — Monitoramento:** pronto localmente (2026-11-21), aguardando validação do usuário. `radar monitorar` (fonte falhando 2 vezes seguidas ou há 3 dias sem itens novos), `radar limpar` (apaga o texto bruto depois de 90 dias) e o workflow mensal `manutencao`, que mantém os crons ativos.
+- Crons: em 2026-11-19 o `coletar` rodou com ~9h de atraso, e o `resumo-diario` nunca disparou pelo cron. Resolvido juntando coleta, triagem e resumo em um job às 08:02, com reserva às 15:04. Em 2026-11-20 a reserva rodou com ~5h40 de atraso e deu certo. Em 2026-11-21, às 10h BRT, o das 08:02 ainda não tinha disparado. O usuário aceita o atraso: se um dia não rodar, o seguinte compensa (a coleta olha as últimas 72h de cada fonte). Sem serviço externo de cron.
+- **Manutenção automática:** ainda não rodou (workflow `manutencao`, todo dia 1).
+
+---
+
+## Bloco 9 — Monitoramento (2026-11-21)
+
+Feito antes do bloco 6, a pedido do usuário. O `CLAUDE.md` já o tratava como transversal, desde o bloco 1.
+
+### O que foi feito
+
+- **`radar monitorar`** (`monitor.py`): olha as execuções dos últimos 4 dias de cada fonte do `fontes.yaml` e aponta dois tipos de problema:
+  - **falhando:** as 2 últimas execuções falharam. O e-mail mostra o último erro.
+  - **sem itens novos:** 3 dias sem nenhum item novo, mesmo rodando sem erro. Só vale para fontes monitoradas há mais de 3 dias, para uma fonte recém-adicionada não disparar o alerta.
+- E-mail "MordeNews: N fontes com problema", em HTML e texto, com o texto de fora escapado. Cada problema é avisado **uma vez**. Se continuar, volta a ser avisado depois de 7 dias, para não chegar o mesmo e-mail todo dia. Os avisados ficam no campo `erro` da execução `monitor` em `execucoes`. Uma verificação por dia, no máximo (o `resumo-diario` roda duas vezes). Sem problema novo, não sai e-mail.
+- Roda no `resumo-diario.yml`, depois do alerta de prazo.
+- **`radar limpar`**: apaga **só o `texto`** dos itens com mais de 90 dias que não estão salvos nem pendentes. Título, resumo, nota, link e campos continuam no banco. A limpeza é registrada em `execucoes` como `limpeza`.
+- **`.github/workflows/manutencao.yml`**: no dia 1 de cada mês, às 06:23 BRT, roda `radar limpar` e faz um commit atualizando a linha "Manutenção automática" deste arquivo. O repositório é público, e o GitHub desativa os crons depois de 60 dias sem atividade.
+- `banco.py`: `execucoes_desde`, `contar_para_limpeza`, `limpar_textos`.
+- Sem dependências e sem variáveis de ambiente novas.
+
+### Validação
+
+- `ruff` e `pytest` passam (inclui `tests/test_monitor.py`).
+- Com dados reais, em 2026-11-21: `radar monitorar --simular` verificou 25 fontes, sem problemas (o histórico ainda tem só 3 dias); `radar limpar --simular` encontrou 0 itens, porque nenhum tem mais de 90 dias.
+
+### Como testar
+
+```powershell
+uv run ruff check . ; uv run pytest
+$env:PYTHONIOENCODING="utf-8"
+uv run radar monitorar --simular   # lista os problemas atuais, sem enviar nem registrar
+uv run radar limpar --simular      # conta quantos itens seriam limpos
+gh workflow run manutencao         # testa o commit mensal (depois: git pull)
+```
+
+### Pendências
+
+- [ ] Rodar o `manutencao` via `workflow_dispatch` e conferir o commit do bot.
+- [ ] Ver o 1º alerta real do monitor. Fontes calmas (ex.: `gh-qa-brasil`, `iel-tocantins`) podem cair em "sem itens novos". Se isso incomodar, decidir se essas fontes ganham um limite maior de dias.
+- [ ] Limitação: se o GitHub não rodar nenhum workflow, o monitor também não roda e não há quem avise.
+- [ ] Depois do commit mensal do bot, dê `git pull` antes de trabalhar localmente.
 
 ---
 
@@ -65,7 +107,7 @@ uv run radar alertas-prazo --simular
 ### Pendências
 
 - [ ] Rodar o `resumo-diario` via `workflow_dispatch` e conferir a seção Concursos no e-mail.
-- [ ] Ver o primeiro alerta de prazo real chegar (a partir de 21/11 há concursos terminando em 24 e 25/11).
+- [x] ~~Ver o primeiro alerta de prazo real chegar~~: dispensado pelo usuário em 2026-11-21 ("meio dispensável por enquanto"). O alerta continua ativo no workflow.
 - [ ] Opcional: fontes oficiais (TCE-TO, TJTO, UFT, IFTO, UFG) e Diários Oficiais de TO e GO em PDF.
 - [ ] Opcional: retificação de um concurso já enviado chega como item novo (o link do PCI muda). Fica como aviso de mudança no edital.
 
