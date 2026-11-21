@@ -12,7 +12,7 @@
 - **Bloco 5 — Editais de concurso:** pronto localmente (2026-11-20), aguardando validação do usuário. 3 fontes (Concursos no Brasil TO e GO, PCI filtrado por TO e GO), 26 concursos triados com dados reais, seção Concursos no e-mail (sem nota, por prazo) e o comando `radar alertas-prazo`. Rodado via `workflow_dispatch` em 2026-11-20: coleta ok (25 fontes), e-mail enviado com a seção Concursos; a triagem pegou 503 do Gemini e o job ficou vermelho. Ajuste: 5xx persistente agora interrompe a triagem como o 429 (aviso no log, pendentes para a próxima, workflow não falha). Em 2026-11-21 o usuário considerou o alerta de prazo "meio dispensável por enquanto": ver o primeiro alerta real chegar deixou de ser requisito. **Falta:** o usuário validar a seção Concursos do e-mail.
 - **Bloco 9 — Monitoramento:** pronto localmente (2026-11-21), aguardando validação do usuário. `radar monitorar` (fonte falhando 2 vezes seguidas ou há 3 dias sem itens novos), `radar limpar` (apaga o texto bruto depois de 90 dias) e o workflow mensal `manutencao`, que mantém os crons ativos.
 - Crons: em 2026-11-19 o `coletar` rodou com ~9h de atraso, e o `resumo-diario` nunca disparou pelo cron. Resolvido juntando coleta, triagem e resumo em um job às 08:02, com reserva às 15:04. Em 2026-11-20 a reserva rodou com ~5h40 de atraso e deu certo. Em 2026-11-21, às 10h BRT, o das 08:02 ainda não tinha disparado. O usuário aceita o atraso: se um dia não rodar, o seguinte compensa (a coleta olha as últimas 72h de cada fonte). Sem serviço externo de cron.
-- **Manutenção automática:** ainda não rodou (workflow `manutencao`, todo dia 1).
+- **Manutenção automática:** última em 2026-11-21 (workflow `manutencao`, todo dia 1).
 
 ---
 
