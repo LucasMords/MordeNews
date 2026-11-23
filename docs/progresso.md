@@ -10,11 +10,56 @@
 - **Bloco 3 — Resumo diário por e-mail:** concluído (2026-11-19). **Fim do MVP.** 1º envio local: 30 assuntos (45 itens). O usuário confirmou que chegou na caixa de entrada, fora do spam. Depois, via `workflow_dispatch` no GitHub: 31 itens novos, sem repetir nenhum do 1º envio (76 itens distintos marcados). 
 - **Bloco 4 — Vagas de estágio:** concluído (2026-11-20). 12 fontes de vagas. Via `workflow_dispatch` no GitHub: coleta de 22/22 fontes, triagem e e-mail "MordeNews 20/11: 41 itens" (30 assuntos de notícias + 11 entradas de vagas). O usuário confirmou que o e-mail chegou com a seção Estágios (empresa, local e bolsa). Coleta, triagem e resumo agora rodam no mesmo job, às 08:02 BRT, com reserva às 15:04.
 - **Bloco 5 — Editais de concurso:** pronto localmente (2026-11-20), aguardando validação do usuário. 3 fontes (Concursos no Brasil TO e GO, PCI filtrado por TO e GO), 26 concursos triados com dados reais, seção Concursos no e-mail (sem nota, por prazo) e o comando `radar alertas-prazo`. Rodado via `workflow_dispatch` em 2026-11-20: coleta ok (25 fontes), e-mail enviado com a seção Concursos; a triagem pegou 503 do Gemini e o job ficou vermelho. Ajuste: 5xx persistente agora interrompe a triagem como o 429 (aviso no log, pendentes para a próxima, workflow não falha). Em 2026-11-21 o usuário considerou o alerta de prazo "meio dispensável por enquanto": ver o primeiro alerta real chegar deixou de ser requisito. **Falta:** o usuário validar a seção Concursos do e-mail.
-- **Bloco 6 — Portal web:** funcionando localmente com o Supabase real (2026-11-21): migração 002 aplicada, login ok. Visual refeito no estilo do mockup do usuário, e botões e navegação mais rápidos. **Falta:** publicar na Vercel (passo 7) e validar lá.
+- **Bloco 6 — Portal web:** concluído (2026-11-21). Visual refeito no estilo do mockup do usuário, botões e navegação mais rápidos. Publicado na Vercel pelo usuário (região `pdx1`, a mesma do Supabase).
 - **Bloco 9 — Monitoramento:** pronto localmente (2026-11-21), aguardando validação do usuário. O `manutencao` rodou via `workflow_dispatch` em 2026-11-21, e o bot fez o commit `c95ad1c`. `radar monitorar` (fonte falhando 2 vezes seguidas ou há 3 dias sem itens novos), `radar limpar` (apaga o texto bruto depois de 90 dias) e o workflow mensal `manutencao`, que mantém os crons ativos.
-- **Bloco 7 — Feedback:** implementado localmente (2026-11-21), aguardando validação: 👍/👎 no portal, links de voto no e-mail (com `PORTAL_URL`) e votos recentes no prompt da triagem. **Falta:** rodar a migração 003.
+- **Bloco 7 — Feedback:** concluído (2026-11-21, commit `12d795d`). Migração 003 aplicada e votos validados pelo usuário; `PORTAL_URL` configurada no GitHub, o que liga os links de voto no e-mail.
+- **Bloco 8 — Rotinas do Claude:** implementado localmente (2026-11-21), aguardando configuração e validação do usuário: migração 004 (token só para ler itens e publicar edições), `scripts/rotina.py`, prompts do editor-chefe diário e da busca aberta semanal em `docs/rotinas/` e as edições no Início do portal. Em 2026-11-23: migração 004 aplicada pelo usuário; token gerado e cadastrado (o token fica no `.env` local, como `ROTINA_TOKEN`); `rotina.py ler` (60 itens) e `publicar` testados com dados reais pela chave pública; token errado recebe 403. **Falta:** criar o ambiente de nuvem e as duas rotinas (passos 3 a 5 de `docs/rotinas/README.md`).
 - Crons: em 2026-11-19 o `coletar` rodou com ~9h de atraso, e o `resumo-diario` nunca disparou pelo cron. Resolvido juntando coleta, triagem e resumo em um job às 08:02, com reserva às 15:04. Em 2026-11-20 a reserva rodou com ~5h40 de atraso e deu certo. Em 2026-11-21, às 10h BRT, o das 08:02 ainda não tinha disparado. O usuário aceita o atraso: se um dia não rodar, o seguinte compensa (a coleta olha as últimas 72h de cada fonte). Sem serviço externo de cron.
 - **Manutenção automática:** última em 2026-11-21 (workflow `manutencao`, todo dia 1).
+
+---
+
+## Bloco 8 — Rotinas do Claude (2026-11-21)
+
+### Decisões do usuário
+
+- O resultado das rotinas aparece **no portal** (não no e-mail).
+- A busca aberta semanal procura **vagas de estágio, concursos e editais, notícias dos temas do perfil** e **sugere fontes novas**.
+
+### O que foi feito
+
+- **`db/migrations/004_rotinas.sql`** (nova):
+  - tabela `edicoes` (uma `diaria` e uma `semanal` por data; publicar de novo substitui), lida pelo portal com RLS;
+  - tabela `rotina_acesso` com o **sha256** do token das rotinas (o token em si não fica no banco);
+  - funções `rotina_itens(token, desde)` e `rotina_publicar(token, ...)`, `security definer`, chamáveis com a chave pública. Sem token válido, respondem 403. Com ele, só leem itens triados (até 14 dias, 400 itens, sem o `texto`) e gravam edições.
+  - **A service role key não sai do GitHub.**
+- **`scripts/rotina.py`** (só biblioteca padrão, roda no ambiente das rotinas sem instalar nada): `gerar-token`, `ler --horas N` (JSON) e `publicar diaria|semanal arquivo.md --titulo ...`.
+- **`docs/rotinas/`**: `README.md` (configuração passo a passo), `editor-chefe.md` e `busca-semanal.md` (os prompts para copiar).
+  - Editor-chefe (diário, 09:00 BRT): junta a mesma notícia de várias fontes (inclusive PT × EN, limitação do bloco 3), escolhe de 3 a 7 assuntos usando nota, votos e salvos, lista vagas e editais com prazo curto. Só usa os itens do banco, sempre com link.
+  - Busca aberta (domingo, 10:00 BRT): pesquisa na web, abre cada link antes de citar, pula o que já foi coletado, sugere fontes sem login e que permitem coleta. **Não grava em `itens`**: a coleta do sistema continua determinística.
+- **Portal:** a edição do dia aparece no topo do Início, aberta; a da semana, no fim, recolhida. O markdown é lido por um parser mínimo (`lib/markdown.ts`): títulos, listas, negrito e links só http(s); nada de HTML. Sem a migração 004, o Início abre normalmente, sem as edições.
+- Sem dependências novas.
+
+### O que falta você fazer
+
+Siga `docs/rotinas/README.md`. Resumo:
+
+1. ~~**Supabase → SQL Editor:** rode `db/migrations/004_rotinas.sql`.~~ Feito em 2026-11-23.
+2. ~~`uv run python scripts/rotina.py gerar-token` e rode no SQL Editor o `insert` que ele imprime. Guarde o token.~~ Feito em 2026-11-23: o token está no `.env` (`ROTINA_TOKEN`).
+3. Em claude.ai/code, crie um ambiente de nuvem com `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` e `ROTINA_TOKEN`, e acesso de rede ao domínio do Supabase.
+4. Crie as duas rotinas com os prompts de `docs/rotinas/`. Na busca semanal, cole o seu `perfil.md` no lugar indicado.
+5. "Executar agora" nas duas e conferir o Início do portal.
+
+### Como testar
+
+```powershell
+uv run ruff check . ; uv run pytest      # scripts/rotina.py sem rede
+cd web ; npm test ; npm run build        # parser de markdown
+```
+
+### Pronto quando
+
+As duas rotinas rodaram ao menos uma vez pelo agendamento, e as edições aparecem no portal com links que abrem as fontes certas.
 
 ---
 

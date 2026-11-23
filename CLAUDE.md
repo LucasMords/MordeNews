@@ -44,7 +44,10 @@ Fluxo: `fontes → coletores agendados → triagem por IA → banco → e-mail /
 │   └── migrations/
 │       └── 001_inicial.sql
 ├── docs/
-│   └── progresso.md            # estado atual — atualize ao fim de cada bloco
+│   ├── progresso.md            # estado atual — atualize ao fim de cada bloco
+│   └── rotinas/                # bloco 8: prompts e configuração das rotinas do Claude
+├── scripts/
+│   └── rotina.py               # bloco 8: leitura/publicação das rotinas (só stdlib, sem service key)
 ├── src/radar/
 │   ├── __init__.py
 │   ├── cli.py                  # ponto de entrada: `radar coletar|triar|resumo`
@@ -160,6 +163,7 @@ EMAIL_DESTINO=                  # quem recebe o resumo
 NOTA_MINIMA_RESUMO=6
 RESUMO_MAXIMO=30
 PORTAL_URL=                     # bloco 7: URL do portal na Vercel; liga os links 👍/👎 no e-mail (opcional)
+# Bloco 8: SUPABASE_PUBLISHABLE_KEY e ROTINA_TOKEN ficam só no ambiente das rotinas do Claude (docs/rotinas/)
 ```
 
 Mantenha `.env.example` atualizado sempre que criar uma variável nova.

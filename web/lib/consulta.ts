@@ -176,3 +176,40 @@ export async function usuarioAtual(supabase: SupabaseClient): Promise<Usuario> {
   const nome = process.env.NOME_USUARIO?.trim() || email.split("@")[0] || "você";
   return { nome, email };
 }
+
+export interface Edicao {
+  tipo: "diaria" | "semanal";
+  referencia: string; // AAAA-MM-DD
+  titulo: string;
+  conteudo: string; // markdown simples (ver lib/markdown.ts)
+  atualizado_em: string;
+}
+
+export interface Edicoes {
+  diaria: Edicao | null; // dos últimos 3 dias
+  semanal: Edicao | null; // dos últimos 10 dias
+}
+
+/**
+ * Últimas edições das rotinas do Claude (bloco 8). Elas são um extra: se a tabela ainda não
+ * existe (migração 004 não rodou) ou a leitura falha, o Início abre sem elas.
+ */
+export async function buscarEdicoes(supabase: SupabaseClient, agora = new Date()): Promise<Edicoes> {
+  const desde = hojeBrasilia(new Date(agora.getTime() - 10 * DIA));
+  const { data, error } = await supabase
+    .from("edicoes")
+    .select("tipo,referencia,titulo,conteudo,atualizado_em")
+    .gte("referencia", desde)
+    .order("referencia", { ascending: false })
+    .limit(10);
+  if (error) {
+    console.error(`Falha ao ler as edições: ${error.message}`);
+    return { diaria: null, semanal: null };
+  }
+  const edicoes = (data ?? []) as Edicao[];
+  const limiteDiaria = hojeBrasilia(new Date(agora.getTime() - 3 * DIA));
+  return {
+    diaria: edicoes.find((e) => e.tipo === "diaria" && e.referencia >= limiteDiaria) ?? null,
+    semanal: edicoes.find((e) => e.tipo === "semanal") ?? null,
+  };
+}

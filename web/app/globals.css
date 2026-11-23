@@ -1623,3 +1623,135 @@ select:focus,
   justify-content: center;
   gap: 0.5rem;
 }
+
+/* ================================================================ edições do editor-chefe (bloco 8) */
+.edicao {
+  border-radius: var(--raio);
+  border: 1px solid rgb(167 139 250 / 0.3);
+  background:
+    radial-gradient(circle at 0% 0%, rgb(124 58 237 / 0.28), transparent 50%),
+    linear-gradient(160deg, var(--superficie-2), var(--superficie));
+  overflow: hidden;
+}
+
+.edicao + .titulo-secao {
+  margin-top: 2.2rem;
+}
+
+.edicao summary {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.2rem 1.5rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.edicao summary::-webkit-details-marker {
+  display: none;
+}
+
+.edicao-icone {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: var(--primaria-clara);
+  background: var(--primaria-suave);
+}
+
+.edicao-semanal .edicao-icone {
+  color: var(--estagios);
+  background: var(--estagios-fundo);
+}
+
+.edicao-cabecalho {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.edicao-cabecalho small {
+  color: var(--discreto);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.edicao-cabecalho strong {
+  color: var(--forte);
+  font-size: 1.15rem;
+}
+
+.edicao-abrir {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid var(--discreto);
+  border-bottom: 2px solid var(--discreto);
+  transform: rotate(45deg);
+  transition: transform 0.15s;
+}
+
+.edicao[open] .edicao-abrir {
+  transform: rotate(-135deg);
+}
+
+.edicao-corpo {
+  padding: 0 1.5rem 1.4rem calc(1.5rem + 44px + 1rem);
+  line-height: 1.6;
+}
+
+.edicao-corpo h3 {
+  margin: 1.1rem 0 0.4rem;
+  font-size: 1.05rem;
+  color: var(--forte);
+}
+
+.edicao-corpo h4 {
+  margin: 0.9rem 0 0.3rem;
+  font-size: 0.95rem;
+  color: var(--forte);
+}
+
+.edicao-corpo > :first-child {
+  margin-top: 0;
+}
+
+.edicao-corpo p,
+.edicao-corpo ul {
+  margin: 0.4rem 0;
+}
+
+.edicao-corpo ul {
+  padding-left: 1.1rem;
+}
+
+.edicao-corpo li + li {
+  margin-top: 0.35rem;
+}
+
+.edicao-corpo a {
+  color: var(--primaria-clara);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.edicao-corpo strong {
+  color: var(--forte);
+}
+
+@media (max-width: 640px) {
+  .edicao summary {
+    padding: 1rem;
+  }
+
+  .edicao-corpo {
+    padding: 0 1rem 1.2rem;
+  }
+}

@@ -188,3 +188,10 @@ export function Marca({ tamanho = 56 }: { tamanho?: number }) {
     </span>
   );
 }
+
+export const IconeEditor = (p: Props) => (
+  <Icone {...p}>
+    <path d="M12 3l1.9 4.6L19 8.2l-3.8 3.4 1.1 5L12 14l-4.3 2.6 1.1-5L5 8.2l5.1-.6Z" />
+    <path d="M5 21h14" />
+  </Icone>
+);

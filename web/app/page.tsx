@@ -1,15 +1,18 @@
 import { marcarPaginaLida } from "@/app/acoes";
 import { CartaoDestaque, CartaoItem } from "@/componentes/cartao-item";
+import { CartaoEdicao } from "@/componentes/edicao";
 import { BarraFiltros, Paginacao } from "@/componentes/filtros";
 import { IconeBusca, IconeLido } from "@/componentes/icones";
 import { ColunaLateral, Saudacao, TituloSecao } from "@/componentes/inicio";
 import { type Ativo, BarraTopo, Menu } from "@/componentes/menu";
 import {
+  buscarEdicoes,
   buscarInicio,
   buscarItens,
   buscarPrazos,
   buscarTags,
   contarPainel,
+  type Edicoes,
   type Inicio as DadosInicio,
   type Pagina,
   temAcesso,
@@ -49,13 +52,14 @@ export default async function Pagina({ searchParams }: { searchParams: Promise<P
   const hoje = hojeBrasilia();
 
   // Tudo numa leva só, em paralelo: cada ida ao Supabase custa centenas de ms.
-  const [acesso, painel, usuario, prazos, tags, dados] = await Promise.all([
+  const [acesso, painel, usuario, prazos, tags, dados, edicoes] = await Promise.all([
     temAcesso(supabase),
     contarPainel(supabase),
     usuarioAtual(supabase),
     buscarPrazos(supabase),
     buscarTags(supabase),
     inicio ? buscarInicio(supabase) : buscarItens(supabase, filtros),
+    inicio ? buscarEdicoes(supabase) : null,
   ]);
 
   if (!acesso) {
@@ -81,7 +85,7 @@ export default async function Pagina({ searchParams }: { searchParams: Promise<P
         <div className="colunas">
           <div className="principal">
             {"destaque" in dados ? (
-              <Inicio dados={dados} hoje={hoje} />
+              <Inicio dados={dados} edicoes={edicoes} hoje={hoje} />
             ) : (
               <Feed pagina={dados} filtros={filtros} hoje={hoje} />
             )}
@@ -94,9 +98,27 @@ export default async function Pagina({ searchParams }: { searchParams: Promise<P
   );
 }
 
-function Inicio({ dados, hoje }: { dados: DadosInicio; hoje: string }) {
+function Inicio({ dados, edicoes, hoje }: { dados: DadosInicio; edicoes: Edicoes | null; hoje: string }) {
   const { destaque, ultimas } = dados;
-  if (!destaque) return <Vazio texto="Ainda não há notícias triadas. Elas aparecem aqui depois da próxima coleta." />;
+  const diaria = edicoes?.diaria;
+  const semanal = edicoes?.semanal;
+  return (
+    <>
+      {diaria && <CartaoEdicao edicao={diaria} />}
+      {destaque ? <Noticias destaque={destaque} ultimas={ultimas} hoje={hoje} /> : (
+        <Vazio texto="Ainda não há notícias triadas. Elas aparecem aqui depois da próxima coleta." />
+      )}
+      {semanal && (
+        <>
+          <TituloSecao>Busca aberta da semana</TituloSecao>
+          <CartaoEdicao edicao={semanal} />
+        </>
+      )}
+    </>
+  );
+}
+
+function Noticias({ destaque, ultimas, hoje }: { destaque: Item; ultimas: Item[]; hoje: string }) {
   return (
     <>
       <TituloSecao href={urlFeed(filtrosDe("noticias", { ordem: "nota" }))}>Destaque do momento</TituloSecao>
